@@ -1,0 +1,38 @@
+[package]
+name = "curdleproofs"
+version = "0.0.1"
+authors = ["George Kadianakis <asn@ethereum.org>",
+           "Mary Maller <mary.maller@ethereum.org>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/asn-d6/curdleproofs"
+categories = ["cryptography"]
+keywords = ["cryptography", "crypto", "zero-knowledge"]
+description = "An implementation of the Curdleproofs shuffle zero-knowledge argument"
+edition = "2021"
+
+[[bench]]
+name = "perf"
+harness = false
+
+[dependencies]
+criterion = { version = "0.3.5", features = ["html_reports"] }
+merlin = "3.0.0"
+ark-ec ="^0.3.0"
+ark-ff ="^0.3.0"
+ark-bls12-381 = "^0.3.0"
+ark-std ="^0.3.0"
+ark-serialize = "^0.3.0"
+thiserror = "1.0.32"
+hashbrown = "0.12.3"
+
+[features]
+default = ["asm", "parallel", "std"]
+asm = ["ark-ff/asm"]
+print-trace = ["ark-std/print-trace"]
+parallel = [ "std", "ark-ff/parallel", "ark-std/parallel", "ark-ec/parallel"]
+std = ["ark-ff/std", "ark-ec/std", "ark-std/std", "ark-serialize/std"]
+
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--html-in-header", "doc/katex-header.html"]
