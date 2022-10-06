@@ -8,6 +8,7 @@ use merlin::Transcript;
 use ark_bls12_381::Fr;
 use ark_ff::Field;
 use ark_serialize::CanonicalSerialize;
+use ark_std::Zero;
 
 /// A Transcript with some methods for feeding it and for obtaining challenges as field elements
 pub trait CurdleproofsTranscript {
@@ -42,10 +43,12 @@ impl CurdleproofsTranscript for Transcript {
             let mut buf = [0; 64];
             self.challenge_bytes(label, &mut buf);
             if let Some(e) = Fr::from_random_bytes(&buf) {
-                // Feed the fresh challenge back into the transcript
-                self.append(label, &e);
+                if e != Fr::zero() {
+                    // Feed the fresh challenge back into the transcript
+                    self.append(label, &e);
 
-                return e;
+                    return e;
+                }
             }
         }
     }
