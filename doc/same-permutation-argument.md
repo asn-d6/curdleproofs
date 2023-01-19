@@ -14,11 +14,13 @@ R_{sameperm} =
 \\right\\}
 \\\]
 
-The following figure provides a high-level overview of the same-permutation construction.
+The following figure provides a high-level overview of the Same Permutation argument construction.
 
 <center>
 <img width="50%" src="https://github.com/asn-d6/curdleproofs/raw/main/doc/images/same_perm_overview.png"></img>
 </center>
+
+The construction uses a [Grand Product argument](crate::grand_product_argument) as a subargument.
 
 ## Protocol
 

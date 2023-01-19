@@ -14,7 +14,7 @@ R_{gprod} =
 \\right\\}
 \\\]
 
-The construction makes use of a discrete-logarithm inner product argument as a subprotocol.
+The construction makes use of a [discrete-logarithm inner product argument](crate::inner_product_argument) as a subprotocol.
 
 ## Protocol
 
