@@ -4,6 +4,7 @@ use ark_ec::AffineCurve;
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
 use ark_ff::{batch_inversion, Field};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 use ark_std::{One, Zero};
 
@@ -17,7 +18,7 @@ use crate::util::{
 };
 
 /// An IPA proof object
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct InnerProductProof {
     B_c: G1Projective,
     B_d: G1Projective,

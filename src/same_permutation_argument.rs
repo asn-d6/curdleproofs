@@ -5,6 +5,7 @@ use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::group::Group;
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 
 use crate::transcript::CurdleproofsTranscript;
@@ -16,7 +17,7 @@ use crate::msm_accumulator::MsmAccumulator;
 use crate::util::{get_permutation, msm};
 
 /// A same permutation proof object
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct SamePermutationProof {
     B: G1Projective,
 

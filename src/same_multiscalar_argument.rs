@@ -4,6 +4,7 @@ use ark_ec::AffineCurve;
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
 use ark_ff::{batch_inversion, Field, One};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 
 use crate::transcript::CurdleproofsTranscript;
@@ -16,7 +17,7 @@ use crate::util::{
 };
 
 /// A $SameMsm$ proof object
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct SameMultiscalarProof {
     B_a: G1Projective,
     B_t: G1Projective,
