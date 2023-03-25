@@ -3,6 +3,7 @@
 use ark_bls12_381::{Fr, G1Projective};
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 use ark_std::UniformRand;
 
@@ -11,7 +12,7 @@ use crate::errors::ProofError;
 use crate::transcript::CurdleproofsTranscript;
 use merlin::Transcript;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct SameScalarProof {
     cm_A: GroupCommitment,
     cm_B: GroupCommitment,

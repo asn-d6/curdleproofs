@@ -4,6 +4,7 @@ use core::iter;
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::{AffineCurve, ProjectiveCurve};
 use ark_ff::{Field, One};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 use ark_std::Zero;
 
@@ -16,7 +17,7 @@ use crate::msm_accumulator::MsmAccumulator;
 use crate::util::{generate_blinders, inner_product, msm};
 
 /// A GrandProduct proof object
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct GrandProductProof {
     C: G1Projective,
 
