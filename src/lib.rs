@@ -18,6 +18,9 @@ pub mod same_scalar_argument;
 pub mod transcript;
 pub mod util;
 
+// To use in whisk code
+pub use ark_bls12_381::g1::G1_GENERATOR_X;
+
 #[doc = include_str!("../doc/notes.md")]
 pub mod notes {
     #[doc = include_str!("../doc/optimizations.md")]
