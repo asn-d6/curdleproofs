@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
-use ark_bls12_381::Fr;
-pub use ark_bls12_381::{G1Affine, G1Projective};
+pub use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
