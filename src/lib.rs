@@ -17,6 +17,7 @@ pub mod same_permutation_argument;
 pub mod same_scalar_argument;
 pub mod transcript;
 pub mod util;
+pub mod whisk;
 
 // To use in whisk code
 pub use ark_bls12_381::g1::G1_GENERATOR_X;
