@@ -19,8 +19,9 @@ use crate::{
 
 pub const FIELD_ELEMENT_SIZE: usize = 32;
 pub const G1POINT_SIZE: usize = 48;
-pub const SHUFFLE_PROOF_SIZE: usize = 32768;
-pub const TRACKER_PROOF_SIZE: usize = 1024;
+pub const SHUFFLE_PROOF_SIZE: usize = 4528;
+// 48+48+32
+pub const TRACKER_PROOF_SIZE: usize = 128;
 
 // TODO: Customize
 const N: usize = 128;
@@ -326,8 +327,17 @@ mod tests {
         G1Affine::from(G.mul(*k))
     }
 
+    fn generate_shuffle_trackers<T: RngCore>(rng: &mut T) -> Vec<WhiskTracker> {
+        iter::repeat_with(|| {
+            let k = Fr::rand(rng);
+            generate_tracker(rng, &k)
+        })
+        .take(ELL)
+        .collect()
+    }
+
     #[test]
-    fn tracker_proof() {
+    fn whisk_tracker_proof() {
         let mut rng = StdRng::seed_from_u64(0u64);
 
         let k = Fr::rand(&mut rng);
@@ -337,6 +347,47 @@ mod tests {
         let tracker_proof =
             generate_whisk_tracker_proof(&mut rng, &tracker, &k_commitment, &k).unwrap();
         assert!(is_valid_whisk_tracker_proof(&tracker, &k_commitment, &tracker_proof).unwrap());
+
+        // Assert correct TRACKER_PROOF_SIZE
+        let mut out_data = vec![];
+        let mut out = Cursor::new(&mut out_data);
+        deserialize_tracker_proof(&tracker_proof)
+            .unwrap()
+            .serialize(&mut out)
+            .unwrap();
+        assert_eq!(out_data.len(), TRACKER_PROOF_SIZE);
+    }
+
+    #[test]
+    fn whisk_shuffle_proof() {
+        let mut rng = StdRng::seed_from_u64(0u64);
+        let crs: CurdleproofsCrs = generate_crs(ELL);
+
+        let k = Fr::rand(&mut rng);
+        let tracker = generate_tracker(&mut rng, &k);
+        let k_commitment = get_k_commitment(&k);
+        let shuffled_trackers = generate_shuffle_trackers(&mut rng);
+
+        let (whisk_post_shuffle_trackers, whisk_shuffle_proof_m_commitment, whisk_shuffle_proof) =
+            generate_whisk_shuffle_proof(&mut rng, &crs, &shuffled_trackers).unwrap();
+        assert!(is_valid_whisk_shuffle_proof(
+            &mut rng,
+            &crs,
+            &shuffled_trackers,
+            &whisk_post_shuffle_trackers,
+            &whisk_shuffle_proof_m_commitment,
+            &whisk_shuffle_proof
+        )
+        .unwrap());
+
+        // Assert correct TRACKER_PROOF_SIZE
+        let mut out_data = vec![];
+        let mut out = Cursor::new(&mut out_data);
+        deserialize_shuffle_proof(&whisk_shuffle_proof)
+            .unwrap()
+            .serialize(&mut out)
+            .unwrap();
+        assert_eq!(out_data.len(), SHUFFLE_PROOF_SIZE);
     }
 
     // Construct the CRS
@@ -473,7 +524,7 @@ mod tests {
     }
 
     #[test]
-    fn whisk_lifecycle() {
+    fn whisk_full_lifecycle() {
         let mut rng = StdRng::seed_from_u64(0u64);
         let crs: CurdleproofsCrs = generate_crs(ELL);
 
