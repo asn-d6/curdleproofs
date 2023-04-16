@@ -23,13 +23,14 @@
 
 use ark_bls12_381::{Fr, G1Projective};
 use ark_ec::group::Group;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 
 use std::ops::{Add, Mul};
 
 /// A GroupCommitment object
 ///
 /// $GroupCommitment((G , H); T ; r ) = cm_T = (cm_{T,1} , cm_{T,2} ) = (r G , T + r H)$
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, CanonicalDeserialize, CanonicalSerialize, Debug, PartialEq, Eq)]
 pub struct GroupCommitment {
     /// Given $GroupCommitment((G , H); T ; r )$ this is $rG$
     pub T_1: G1Projective,

@@ -2,6 +2,7 @@
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 use ark_std::rand::{rngs::StdRng, SeedableRng};
 use ark_std::{UniformRand, Zero};
@@ -21,7 +22,7 @@ use crate::same_scalar_argument::SameScalarProof;
 use crate::N_BLINDERS;
 
 /// The Curdleproofs CRS
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct CurdleproofsCrs {
     /// Pedersen commitment bases
     pub vec_G: Vec<G1Affine>,
@@ -67,7 +68,7 @@ pub fn generate_crs(ell: usize) -> CurdleproofsCrs {
 }
 
 /// A Curdleproofs proof object
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct CurdleproofsProof {
     A: G1Projective,
     cm_T: GroupCommitment,
