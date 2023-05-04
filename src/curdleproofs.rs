@@ -1,8 +1,9 @@
 #![allow(non_snake_case)]
-use ark_bls12_381::{Fr, G1Affine, G1Projective};
+pub use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::ProjectiveCurve;
 use ark_ff::PrimeField;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
+use ark_serialize::{Read, Write};
 use ark_std::rand::RngCore;
 use ark_std::rand::{rngs::StdRng, SeedableRng};
 use ark_std::{UniformRand, Zero};
