@@ -1,0 +1,93 @@
+name: CI
+
+# Credits https://github.com/seanmonstar/reqwest/blob/master/.github/workflows/ci.yml
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+env:
+  REQWEST_TEST_BODY_FULL: 1
+  RUST_BACKTRACE: 1
+
+jobs:
+  ci-pass:
+    name: CI is green
+    runs-on: ubuntu-latest
+    needs:
+      - style
+      - test
+      - docs
+    steps:
+      - run: exit 0
+
+  style:
+    name: Check Style
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - run: cargo fmt -- --check
+      - run: cargo clippy -- --deny warnings
+
+  test:
+    name: ${{ matrix.name }}
+    needs: [style]
+
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux / stable
+          - name: linux / beta
+            rust: beta
+          - name: macOS / stable
+            os: macOS-latest
+          - name: windows / stable-x86_64-gnu
+            os: windows-latest
+            rust: stable-x86_64-pc-windows-gnu
+            target: x86_64-pc-windows-gnu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust || 'stable' }}
+          targets: ${{ matrix.target }}
+
+      - name: Check
+        run: cargo check
+
+      - name: Test
+        run: cargo test -- --test-threads=1
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --document-private-items --all-features
