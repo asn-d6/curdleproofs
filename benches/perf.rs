@@ -112,7 +112,7 @@ fn benchmark_shuffle(c: &mut Criterion) {
     c.bench_function("verifier", |b| {
         b.iter(|| {
             assert!(shuffle_proof
-                .verify(&crs, &vec_R, &vec_S, &vec_T, &vec_U, &M, &mut rng)
+                .verify(&crs, &vec_R, &vec_S, &vec_T, &vec_U, &mut rng)
                 .is_ok());
         })
     });

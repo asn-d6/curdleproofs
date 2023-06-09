@@ -19,7 +19,7 @@ use crate::{
 
 pub const FIELD_ELEMENT_SIZE: usize = 32;
 pub const G1POINT_SIZE: usize = 48;
-pub const SHUFFLE_PROOF_SIZE: usize = 4528;
+pub const SHUFFLE_PROOF_SIZE: usize = 4576;
 // 48+48+32
 pub const TRACKER_PROOF_SIZE: usize = 128;
 
@@ -52,23 +52,20 @@ pub struct TrackerProof {
 /// * `crs`           - Curdleproofs CRS (Common Reference String), a trusted setup
 /// * `pre_trackers`  - Trackers before shuffling
 /// * `post_trackers` - Trackers after shuffling
-/// * `m`             - Commitment to secret permutation
 /// * `shuffle_proof` - Shuffle proof struct
 pub fn is_valid_whisk_shuffle_proof<T: RngCore>(
     rng: &mut T,
     crs: &CurdleproofsCrs,
     pre_trackers: &[WhiskTracker],
     post_trackers: &[WhiskTracker],
-    m: &G1Affine,
     shuffle_proof: &ShuffleProofBytes,
 ) -> Result<bool, SerializationError> {
     let (vec_r, vec_s) = unzip_trackers(pre_trackers);
     let (vec_t, vec_u) = unzip_trackers(post_trackers);
-    let m_projective = G1Projective::from(*m);
     let shuffle_proof_instance = deserialize_shuffle_proof(shuffle_proof)?;
 
     Ok(shuffle_proof_instance
-        .verify(crs, &vec_r, &vec_s, &vec_t, &vec_u, &m_projective, rng)
+        .verify(crs, &vec_r, &vec_s, &vec_t, &vec_u, rng)
         .is_ok())
 }
 
@@ -83,13 +80,12 @@ pub fn is_valid_whisk_shuffle_proof<T: RngCore>(
 ///
 /// A tuple containing
 /// * `0` `post_trackers` - Resulting shuffled trackers
-/// * `1` `m`             - Commitment to secret permutation
-/// * `2` `shuffle_proof` - Shuffle proof struct
+/// * `1` `shuffle_proof` - Shuffle proof struct
 pub fn generate_whisk_shuffle_proof<T: RngCore>(
     rng: &mut T,
     crs: &CurdleproofsCrs,
     pre_trackers: &[WhiskTracker],
-) -> Result<(Vec<WhiskTracker>, G1Affine, ShuffleProofBytes), SerializationError> {
+) -> Result<(Vec<WhiskTracker>, ShuffleProofBytes), SerializationError> {
     // Get witnesses: the permutation, the randomizer, and a bunch of blinders
     let mut permutation: Vec<u32> = (0..ELL as u32).collect();
 
@@ -116,12 +112,8 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
         rng,
     );
 
-    let mut shuffle_proof: Vec<u8> = vec![];
-    shuffle_proof_instance.serialize(&mut shuffle_proof)?;
-
     Ok((
         zip_trackers(&vec_t, &vec_u),
-        G1Affine::from(m),
         serialize_shuffle_proof(&shuffle_proof_instance)?,
     ))
 }
@@ -363,19 +355,15 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0u64);
         let crs: CurdleproofsCrs = generate_crs(ELL);
 
-        let k = Fr::rand(&mut rng);
-        let tracker = generate_tracker(&mut rng, &k);
-        let k_commitment = get_k_commitment(&k);
         let shuffled_trackers = generate_shuffle_trackers(&mut rng);
 
-        let (whisk_post_shuffle_trackers, whisk_shuffle_proof_m_commitment, whisk_shuffle_proof) =
+        let (whisk_post_shuffle_trackers, whisk_shuffle_proof) =
             generate_whisk_shuffle_proof(&mut rng, &crs, &shuffled_trackers).unwrap();
         assert!(is_valid_whisk_shuffle_proof(
             &mut rng,
             &crs,
             &shuffled_trackers,
             &whisk_post_shuffle_trackers,
-            &whisk_shuffle_proof_m_commitment,
             &whisk_shuffle_proof
         )
         .unwrap());
@@ -396,7 +384,6 @@ mod tests {
         pub whisk_opening_proof: TrackerProofBytes,
         pub whisk_post_shuffle_trackers: Vec<WhiskTracker>,
         pub whisk_shuffle_proof: ShuffleProofBytes,
-        pub whisk_shuffle_proof_m_commitment: G1Affine,
         pub whisk_registration_proof: TrackerProofBytes,
         pub whisk_tracker: WhiskTracker,
         pub whisk_k_commitment: G1Affine,
@@ -429,7 +416,6 @@ mod tests {
                 &crs,
                 &state.shuffled_trackers,
                 &block.whisk_post_shuffle_trackers,
-                &block.whisk_shuffle_proof_m_commitment,
                 &block.whisk_shuffle_proof
             )
             .unwrap(),
@@ -464,7 +450,7 @@ mod tests {
     ) -> Block {
         let mut rng = StdRng::seed_from_u64(0u64);
 
-        let (whisk_post_shuffle_trackers, whisk_shuffle_proof_m_commitment, whisk_shuffle_proof) =
+        let (whisk_post_shuffle_trackers, whisk_shuffle_proof) =
             generate_whisk_shuffle_proof(&mut rng, &crs, &state.shuffled_trackers).unwrap();
 
         let is_first_proposal = state.proposer_tracker.r_G == G1Affine::prime_subgroup_generator();
@@ -512,7 +498,6 @@ mod tests {
             whisk_opening_proof,
             whisk_post_shuffle_trackers,
             whisk_shuffle_proof,
-            whisk_shuffle_proof_m_commitment,
             whisk_registration_proof,
             whisk_tracker,
             whisk_k_commitment,

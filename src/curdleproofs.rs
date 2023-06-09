@@ -71,6 +71,7 @@ pub fn generate_crs(ell: usize) -> CurdleproofsCrs {
 /// A Curdleproofs proof object
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct CurdleproofsProof {
+    M: G1Projective,
     A: G1Projective,
     cm_T: GroupCommitment,
     cm_U: GroupCommitment,
@@ -214,6 +215,7 @@ impl CurdleproofsProof {
         );
 
         CurdleproofsProof {
+            M,
             A,
             cm_T,
             cm_U,
@@ -234,7 +236,6 @@ impl CurdleproofsProof {
     /// * `vec_S` - Input vector **S**
     /// * `vec_T` - Output vector **T**
     /// * `vec_U` - Output vector **U**
-    /// * `M` - Commitment to `permutation`
     #[allow(clippy::too_many_arguments)]
     pub fn verify<T: RngCore>(
         &self,
@@ -244,7 +245,6 @@ impl CurdleproofsProof {
         vec_S: &Vec<G1Affine>,
         vec_T: &Vec<G1Affine>,
         vec_U: &Vec<G1Affine>,
-        M: &G1Projective,
 
         rng: &mut T,
     ) -> Result<(), ProofError> {
@@ -263,7 +263,7 @@ impl CurdleproofsProof {
 
         // Step 1
         transcript.append_list(b"curdleproofs_step1", &[vec_R, vec_S, vec_T, vec_U]);
-        transcript.append(b"curdleproofs_step1", M);
+        transcript.append(b"curdleproofs_step1", &self.M);
         let vec_a = transcript.get_and_append_challenges(b"curdleproofs_vec_a", ell);
 
         // Step 2
@@ -275,7 +275,7 @@ impl CurdleproofsProof {
             &crs.G_sum,
             &crs.H_sum,
             &self.A,
-            M,
+            &self.M,
             &vec_a,
             N_BLINDERS,
             &mut transcript,
@@ -389,7 +389,7 @@ mod tests {
 
         // Test a correct shuffle proof
         assert!(shuffle_proof
-            .verify(&crs, &vec_R, &vec_S, &vec_T, &vec_U, &M, &mut rng)
+            .verify(&crs, &vec_R, &vec_S, &vec_T, &vec_U, &mut rng)
             .is_ok());
     }
 
@@ -442,7 +442,7 @@ mod tests {
 
         // Let's start mutating the instances of the verifier to see that the proof fails
         assert!(shuffle_proof
-            .verify(&crs, &vec_S, &vec_R, &vec_T, &vec_U, &M, &mut rng)
+            .verify(&crs, &vec_S, &vec_R, &vec_T, &vec_U, &mut rng)
             .is_err());
 
         // apply a different permutation than the one proved
@@ -453,22 +453,15 @@ mod tests {
                 &vec_S,
                 &get_permutation(&vec_T, &another_permutation),
                 &get_permutation(&vec_U, &another_permutation),
-                &M,
                 &mut rng
             )
             .is_err());
 
         // provide wrong perm commitment
-        assert!(shuffle_proof
-            .verify(
-                &crs,
-                &vec_R,
-                &vec_S,
-                &vec_T,
-                &vec_U,
-                &M.mul(k.into_repr()),
-                &mut rng
-            )
+        let mut shuffle_proof_wrong = shuffle_proof.clone();
+        shuffle_proof_wrong.M = M.mul(k.into_repr());
+        assert!(shuffle_proof_wrong
+            .verify(&crs, &vec_R, &vec_S, &vec_T, &vec_U, &mut rng)
             .is_err());
 
         // instnace outputs use a different randomizer
@@ -488,7 +481,6 @@ mod tests {
                 &vec_S,
                 &another_vec_T,
                 &another_vec_U,
-                &M,
                 &mut rng
             )
             .is_err());
