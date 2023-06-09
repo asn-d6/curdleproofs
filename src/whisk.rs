@@ -127,7 +127,7 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
 }
 
 /// Verify knowledge of `k` such that `tracker.k_r_g == k * tracker.r_g` and `k_commitment == k * BLS_G1_GENERATOR`.
-/// Defined in https://github.com/nalinbhardwaj/curdleproofs.pie/blob/59eb1d54fe193f063a718fc3bdded4734e66bddc/curdleproofs/curdleproofs/whisk_interface.py#L48-L68
+/// Defined in <https://github.com/nalinbhardwaj/curdleproofs.pie/blob/59eb1d54fe193f063a718fc3bdded4734e66bddc/curdleproofs/curdleproofs/whisk_interface.py#L48-L68>
 pub fn is_valid_whisk_tracker_proof(
     tracker: &WhiskTracker,
     k_commitment: &G1Affine,
