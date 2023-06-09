@@ -92,6 +92,7 @@ impl InnerProductProof {
     /// * `z` - inner product result
     /// * `vec_c` - first inner product vector (*witness*)
     /// * `vec_d` - second inner product vector (*witness*)
+    #[allow(clippy::too_many_arguments)]
     pub fn new<T: RngCore>(
         mut crs_G_vec: Vec<G1Affine>,
         mut crs_G_prime_vec: Vec<G1Affine>,
@@ -195,6 +196,7 @@ impl InnerProductProof {
     }
 
     /// Generate verification scalars for the IPA [verifier optimization](crate::notes::optimizations#ipa-verification-scalars)
+    #[allow(clippy::type_complexity)]
     fn verification_scalars(
         &self,
         n: usize,
@@ -256,6 +258,7 @@ impl InnerProductProof {
     /// * `D` - commitment to witness vector `vec_d`
     /// * `z` - inner product result
     /// * `vec_u` - Auxiliary vector for verifier [optimization](crate::notes::optimizations#grandproduct-verifier-optimizations)
+    #[allow(clippy::too_many_arguments)]
     pub fn verify<T: RngCore>(
         &self,
         crs_G_vec: &Vec<G1Affine>,

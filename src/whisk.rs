@@ -57,8 +57,8 @@ pub struct TrackerProof {
 pub fn is_valid_whisk_shuffle_proof<T: RngCore>(
     rng: &mut T,
     crs: &CurdleproofsCrs,
-    pre_trackers: &Vec<WhiskTracker>,
-    post_trackers: &Vec<WhiskTracker>,
+    pre_trackers: &[WhiskTracker],
+    post_trackers: &[WhiskTracker],
     m: &G1Affine,
     shuffle_proof: &ShuffleProofBytes,
 ) -> Result<bool, SerializationError> {
@@ -88,7 +88,7 @@ pub fn is_valid_whisk_shuffle_proof<T: RngCore>(
 pub fn generate_whisk_shuffle_proof<T: RngCore>(
     rng: &mut T,
     crs: &CurdleproofsCrs,
-    pre_trackers: &Vec<WhiskTracker>,
+    pre_trackers: &[WhiskTracker],
 ) -> Result<(Vec<WhiskTracker>, G1Affine, ShuffleProofBytes), SerializationError> {
     // Get witnesses: the permutation, the randomizer, and a bunch of blinders
     let mut permutation: Vec<u32> = (0..ELL as u32).collect();
@@ -112,7 +112,7 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
         m,
         permutation.clone(),
         k,
-        vec_m_blinders.clone(),
+        vec_m_blinders,
         rng,
     );
 
@@ -156,10 +156,10 @@ pub fn is_valid_whisk_tracker_proof(
     transcript.append_list(
         b"tracker_opening_proof",
         [
-            &k_G,
+            k_G,
             &G1Affine::prime_subgroup_generator(),
-            &k_r_G,
-            &r_G,
+            k_r_G,
+            r_G,
             &G1Affine::from(tracker_proof.A),
             &G1Affine::from(tracker_proof.B),
         ]
@@ -193,7 +193,7 @@ pub fn generate_whisk_tracker_proof<T: RngCore>(
     transcript.append_list(
         b"tracker_opening_proof",
         [
-            &k_G,
+            k_G,
             &G,
             &k_r_g,
             &r_g,
@@ -211,16 +211,16 @@ pub fn generate_whisk_tracker_proof<T: RngCore>(
     serialize_tracker_proof(&tracker_proof)
 }
 
-fn unzip_trackers(trackers: &Vec<WhiskTracker>) -> (Vec<G1Affine>, Vec<G1Affine>) {
+fn unzip_trackers(trackers: &[WhiskTracker]) -> (Vec<G1Affine>, Vec<G1Affine>) {
     let vec_r: Vec<G1Affine> = trackers.iter().map(|tracker| tracker.r_G).collect();
     let vec_s: Vec<G1Affine> = trackers.iter().map(|tracker| tracker.k_r_G).collect();
     (vec_r, vec_s)
 }
 
-fn zip_trackers(vec_r: &Vec<G1Affine>, vec_s: &Vec<G1Affine>) -> Vec<WhiskTracker> {
+fn zip_trackers(vec_r: &[G1Affine], vec_s: &[G1Affine]) -> Vec<WhiskTracker> {
     vec_r
-        .into_iter()
-        .zip(vec_s.into_iter())
+        .iter()
+        .zip(vec_s.iter())
         .map(|(r_G, k_r_G)| WhiskTracker {
             r_G: *r_G,
             k_r_G: *k_r_G,

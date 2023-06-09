@@ -22,8 +22,6 @@ pub mod whisk;
 // To use in whisk code
 pub use ark_bls12_381::g1::G1_GENERATOR_X;
 
-pub use ark_bls12_381::g1::G1_GENERATOR_X;
-
 #[doc = include_str!("../doc/notes.md")]
 pub mod notes {
     #[doc = include_str!("../doc/optimizations.md")]

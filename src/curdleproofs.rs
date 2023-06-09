@@ -97,6 +97,7 @@ impl CurdleproofsProof {
     /// * `permutation` - Permutation (*witness*)
     /// * `k` - Randomizer (*witness*)
     /// * `vec_m_blinders` - $\\bm{r_m}$ blinders for the permutation commitment (*witness*)
+    #[allow(clippy::too_many_arguments)]
     pub fn new<T: RngCore>(
         crs: &CurdleproofsCrs,
 
@@ -234,6 +235,7 @@ impl CurdleproofsProof {
     /// * `vec_T` - Output vector **T**
     /// * `vec_U` - Output vector **U**
     /// * `M` - Commitment to `permutation`
+    #[allow(clippy::too_many_arguments)]
     pub fn verify<T: RngCore>(
         &self,
         crs: &CurdleproofsCrs,

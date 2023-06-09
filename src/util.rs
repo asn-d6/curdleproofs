@@ -49,6 +49,7 @@ pub fn get_verification_scalars_bitstring(n: usize, logn: usize) -> Vec<Vec<usiz
     }
 
     for j in 0..logn {
+        #[allow(clippy::needless_range_loop)]
         for i in 0..n {
             let current_bitstring = format!("{:b}", i);
             let mut bit_vec: Vec<char> = current_bitstring.chars().collect();
@@ -105,7 +106,7 @@ pub fn shuffle_permute_and_commit_input<T: RngCore>(
     vec_T = get_permutation(&vec_T, permutation);
     vec_U = get_permutation(&vec_U, permutation);
 
-    let range_as_fr: Vec<Fr> = (0..ell as u32).into_iter().map(Fr::from).collect();
+    let range_as_fr: Vec<Fr> = (0..ell as u32).map(Fr::from).collect();
     let sigma_ell = get_permutation(&range_as_fr, permutation);
 
     let vec_m_blinders = generate_blinders(rng, N_BLINDERS);

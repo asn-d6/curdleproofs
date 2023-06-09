@@ -38,6 +38,7 @@ impl SamePermutationProof {
     /// * `permutation` - shuffle permutation (*witness*)
     /// * `vec_a_blinders` - blinders for `vec_a` (*witness*)
     /// * `vec_m_blinders` - blinders for `vec_m` (*witness*)
+    #[allow(clippy::too_many_arguments)]
     pub fn new<T: RngCore>(
         crs_G_vec: &Vec<G1Affine>,
         crs_H_vec: &Vec<G1Affine>,
@@ -109,6 +110,7 @@ impl SamePermutationProof {
     /// * `A` - commitment to permuted `vec_a`
     /// * `M` - commitment to `permutation`
     /// * `vec_a` - scalar vector
+    #[allow(clippy::too_many_arguments)]
     pub fn verify<T: RngCore>(
         &self,
 
