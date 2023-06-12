@@ -38,6 +38,7 @@ impl GrandProductProof {
     /// * `gprod_result` - grand product result
     /// * `vec_b` - vector of grand product factors (*witness*)
     /// * `vec_b_blinders` - blinders for `B` (*witness*)
+    #[allow(clippy::too_many_arguments)]
     pub fn new<T: RngCore>(
         crs_G_vec: &Vec<G1Affine>,
         crs_H_vec: &Vec<G1Affine>,
@@ -174,6 +175,7 @@ impl GrandProductProof {
     /// * `crs_H_sum` - CRS sum of `crs_H_vec` (grand product argument [optimization](crate::notes::optimizations#grandproduct-verifier-optimizations))
     /// * `B` - commitment to `vec_b`
     /// * `gprod_result` - grand product result
+    #[allow(clippy::too_many_arguments)]
     pub fn verify<T: RngCore>(
         &self,
 

@@ -34,6 +34,7 @@ impl SameScalarProof {
     /// * `k` - "same scalar" witness
     /// * `r_t` - randomness of $cm_t$
     /// * `r_u` - randomness of $cm_u$
+    #[allow(clippy::too_many_arguments)]
     pub fn new<T: RngCore>(
         crs_G_t: &G1Projective,
         crs_G_u: &G1Projective,
@@ -90,6 +91,7 @@ impl SameScalarProof {
     /// * `crs_H` - CRS group element $H$
     /// * `R`, `S` - instance group elements $R$ and $S$
     /// * `cm_T`, `cm_U` - instance commitments $cm_t$ and $cm_u$
+    #[allow(clippy::too_many_arguments)]
     pub fn verify(
         &self,
 

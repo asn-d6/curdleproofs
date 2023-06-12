@@ -45,6 +45,7 @@ impl SameMultiscalarProof {
     /// * `vec_T` - base points $\bm{T}$
     /// * `vec_U` - base points $\bm{U}$
     /// * `vec_x` - scalar vector (*witness*)
+    #[allow(clippy::too_many_arguments)]
     pub fn new<T: RngCore>(
         mut crs_G_vec: Vec<G1Affine>,
 
@@ -144,6 +145,7 @@ impl SameMultiscalarProof {
     }
 
     /// Generate verification scalars for the $SameMsm$ [verifier optimization](crate::notes::optimizations)
+    #[allow(clippy::type_complexity)]
     fn verification_scalars(
         &self,
         n: usize,
@@ -202,6 +204,7 @@ impl SameMultiscalarProof {
     /// * `Z_u` - commitment to `vec_x` under `vec_U`
     /// * `vec_T` - base points $\bm{T}$
     /// * `vec_U` - base points $\bm{U}$
+    #[allow(clippy::too_many_arguments)]
     pub fn verify<T: RngCore>(
         &self,
         crs_G_vec: &[G1Affine],
