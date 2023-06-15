@@ -14,20 +14,14 @@ use crate::{
     curdleproofs::{CurdleproofsCrs, CurdleproofsProof},
     transcript::CurdleproofsTranscript,
     util::shuffle_permute_and_commit_input,
-    N_BLINDERS,
 };
 
 pub const FIELD_ELEMENT_SIZE: usize = 32;
 pub const G1POINT_SIZE: usize = 48;
-pub const WHISK_SHUFFLE_PROOF_SIZE: usize = 4576;
-// 48+48+32
 pub const TRACKER_PROOF_SIZE: usize = 128;
 
-// TODO: Customize
-const N: usize = 128;
-const ELL: usize = N - N_BLINDERS;
-
-pub type WhiskShuffleProofBytes = [u8; WHISK_SHUFFLE_PROOF_SIZE];
+// N is customizable at runtime so shuffle proof is of unknown size at compile time
+pub type WhiskShuffleProofBytes = Vec<u8>;
 pub type TrackerProofBytes = [u8; TRACKER_PROOF_SIZE];
 pub type FieldElementBytes = [u8; FIELD_ELEMENT_SIZE];
 
@@ -104,7 +98,7 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
     pre_trackers: &[WhiskTracker],
 ) -> Result<(Vec<WhiskTracker>, WhiskShuffleProofBytes), SerializationError> {
     // Get witnesses: the permutation, the randomizer, and a bunch of blinders
-    let mut permutation: Vec<u32> = (0..ELL as u32).collect();
+    let mut permutation: Vec<u32> = (0..crs.ell() as u32).collect();
 
     // permutation and k (randomizer) can be forgotten immediately after creating the proof
     permutation.shuffle(rng);
@@ -129,8 +123,8 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
         rng,
     );
 
-    let mut whisk_shuffle_proof_bytes = [0; WHISK_SHUFFLE_PROOF_SIZE];
-    WhiskShuffleProof { proof, M: m }.serialize(whisk_shuffle_proof_bytes.as_mut_slice())?;
+    let mut whisk_shuffle_proof_bytes = vec![];
+    WhiskShuffleProof { proof, M: m }.serialize(Cursor::new(&mut whisk_shuffle_proof_bytes))?;
 
     Ok((zip_trackers(&vec_t, &vec_u), whisk_shuffle_proof_bytes))
 }
@@ -298,10 +292,13 @@ pub fn deserialize_fr(bytes: &[u8]) -> Fr {
 mod tests {
     use super::*;
     use crate::curdleproofs::generate_crs;
+    use crate::N_BLINDERS;
     use ark_ff::PrimeField;
     use ark_std::rand::rngs::StdRng;
     use ark_std::rand::SeedableRng;
     use core::iter;
+
+    const ELL: usize = 64 - N_BLINDERS;
 
     fn generate_tracker<T: RngCore>(rng: &mut T, k: &Fr) -> WhiskTracker {
         // r can be forgotten
@@ -355,30 +352,35 @@ mod tests {
 
     #[test]
     fn whisk_shuffle_proof() {
-        let mut rng = StdRng::seed_from_u64(0u64);
-        let crs: CurdleproofsCrs = generate_crs(ELL);
+        for (n, proof_size) in [(8, 100), (16, 100), (32, 100), (64, 100), (128, 100)] {
+            let mut rng = StdRng::seed_from_u64(0u64);
+            let crs: CurdleproofsCrs = generate_crs(n - N_BLINDERS);
 
-        let shuffled_trackers = generate_shuffle_trackers(&mut rng);
+            let shuffled_trackers = generate_shuffle_trackers(&mut rng);
 
-        let (whisk_post_shuffle_trackers, whisk_shuffle_proof_bytes) =
-            generate_whisk_shuffle_proof(&mut rng, &crs, &shuffled_trackers).unwrap();
-        assert!(is_valid_whisk_shuffle_proof(
-            &mut rng,
-            &crs,
-            &shuffled_trackers,
-            &whisk_post_shuffle_trackers,
-            &whisk_shuffle_proof_bytes
-        )
-        .unwrap());
+            let (whisk_post_shuffle_trackers, whisk_shuffle_proof_bytes) =
+                generate_whisk_shuffle_proof(&mut rng, &crs, &shuffled_trackers).unwrap();
+            assert!(
+                is_valid_whisk_shuffle_proof(
+                    &mut rng,
+                    &crs,
+                    &shuffled_trackers,
+                    &whisk_post_shuffle_trackers,
+                    &whisk_shuffle_proof_bytes
+                )
+                .unwrap(),
+                "invalid proof N {}",
+                n
+            );
 
-        // Assert correct TRACKER_PROOF_SIZE
-        let mut out_data = vec![];
-        let mut out = Cursor::new(&mut out_data);
-        WhiskShuffleProof::deserialize(Cursor::new(&whisk_shuffle_proof_bytes))
-            .unwrap()
-            .serialize(&mut out)
-            .unwrap();
-        assert_eq!(out_data.len(), WHISK_SHUFFLE_PROOF_SIZE);
+            // Assert correct TRACKER_PROOF_SIZE
+            assert_eq!(
+                whisk_shuffle_proof_bytes.len(),
+                proof_size,
+                "wrong proof size N {}",
+                n
+            );
+        }
     }
 
     // Construct the CRS
