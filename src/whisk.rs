@@ -8,6 +8,7 @@ use ark_std::rand::prelude::SliceRandom;
 use ark_std::rand::RngCore;
 use ark_std::UniformRand;
 use merlin::Transcript;
+use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 
 use crate::{
@@ -30,11 +31,14 @@ const ELL: usize = N - N_BLINDERS;
 pub type WhiskShuffleProofBytes = [u8; WHISK_SHUFFLE_PROOF_SIZE];
 pub type TrackerProofBytes = [u8; TRACKER_PROOF_SIZE];
 pub type FieldElementBytes = [u8; FIELD_ELEMENT_SIZE];
+pub type G1PointBytes = [u8; G1POINT_SIZE];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WhiskTracker {
-    pub r_G: G1Affine,   // r * G
-    pub k_r_G: G1Affine, // k * r * G
+    #[serde(with = "hex::serde")]
+    pub r_G: G1PointBytes, // r * G
+    #[serde(with = "hex::serde")]
+    pub k_r_G: G1PointBytes, // k * r * G
 }
 
 /// A tracker proof object
@@ -67,8 +71,8 @@ pub fn is_valid_whisk_shuffle_proof<T: RngCore>(
     post_trackers: &[WhiskTracker],
     whisk_shuffle_proof_bytes: &WhiskShuffleProofBytes,
 ) -> Result<bool, SerializationError> {
-    let (vec_r, vec_s) = unzip_trackers(pre_trackers);
-    let (vec_t, vec_u) = unzip_trackers(post_trackers);
+    let (vec_r, vec_s) = unzip_trackers(pre_trackers)?;
+    let (vec_t, vec_u) = unzip_trackers(post_trackers)?;
     let whisk_shuffle_proof =
         WhiskShuffleProof::deserialize(Cursor::new(whisk_shuffle_proof_bytes))?;
 
@@ -111,7 +115,7 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
     let k = Fr::rand(rng);
 
     // Get shuffle inputs
-    let (vec_r, vec_s) = unzip_trackers(pre_trackers);
+    let (vec_r, vec_s) = unzip_trackers(pre_trackers)?;
 
     let (vec_t, vec_u, m, vec_m_blinders) =
         shuffle_permute_and_commit_input(crs, &vec_r, &vec_s, &permutation, &k, rng);
@@ -132,23 +136,23 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
     let mut whisk_shuffle_proof_bytes = [0; WHISK_SHUFFLE_PROOF_SIZE];
     WhiskShuffleProof { proof, M: m }.serialize(whisk_shuffle_proof_bytes.as_mut_slice())?;
 
-    Ok((zip_trackers(&vec_t, &vec_u), whisk_shuffle_proof_bytes))
+    Ok((zip_trackers(&vec_t, &vec_u)?, whisk_shuffle_proof_bytes))
 }
 
 /// Verify knowledge of `k` such that `tracker.k_r_g == k * tracker.r_g` and `k_commitment == k * BLS_G1_GENERATOR`.
 /// Defined in <https://github.com/nalinbhardwaj/curdleproofs.pie/blob/59eb1d54fe193f063a718fc3bdded4734e66bddc/curdleproofs/curdleproofs/whisk_interface.py#L48-L68>
 pub fn is_valid_whisk_tracker_proof(
     tracker: &WhiskTracker,
-    k_commitment: &G1Affine,
+    k_commitment: &G1PointBytes,
     tracker_proof: &TrackerProofBytes,
 ) -> Result<bool, SerializationError> {
     let tracker_proof = deserialize_tracker_proof(tracker_proof)?;
 
     // TODO: deserializing here to serialize immediately after in append_list()
     //       serde could be avoided but there's value in checking point's ok before proof gen
-    let k_r_G = &tracker.k_r_G;
-    let r_G = &tracker.r_G;
-    let k_G = &k_commitment;
+    let k_r_G = from_g1_compressed(&tracker.k_r_G)?;
+    let r_G = from_g1_compressed(&tracker.r_G)?;
+    let k_G = from_g1_compressed(k_commitment)?;
     let G = G1Affine::prime_subgroup_generator();
 
     // `k_r_G`: Existing WhiskTracker.k_r_g
@@ -165,10 +169,10 @@ pub fn is_valid_whisk_tracker_proof(
     transcript.append_list(
         b"tracker_opening_proof",
         [
-            k_G,
+            &k_G,
             &G1Affine::prime_subgroup_generator(),
-            k_r_G,
-            r_G,
+            &k_r_G,
+            &r_G,
             &G1Affine::from(tracker_proof.A),
             &G1Affine::from(tracker_proof.B),
         ]
@@ -185,14 +189,13 @@ pub fn is_valid_whisk_tracker_proof(
 pub fn generate_whisk_tracker_proof<T: RngCore>(
     rng: &mut T,
     tracker: &WhiskTracker,
-    k_commitment: &G1Affine,
     k: &Fr,
 ) -> Result<TrackerProofBytes, SerializationError> {
-    let k_r_g = tracker.k_r_G;
-    let r_g = tracker.r_G;
-    let k_G = k_commitment;
+    let k_r_g = from_g1_compressed(&tracker.k_r_G)?;
+    let r_g = from_g1_compressed(&tracker.r_G)?;
     let G = G1Affine::prime_subgroup_generator();
 
+    let k_G = G.mul(*k);
     let blinder = Fr::rand(rng);
     let A = G.mul(blinder);
     let B = r_g.mul(blinder);
@@ -202,7 +205,7 @@ pub fn generate_whisk_tracker_proof<T: RngCore>(
     transcript.append_list(
         b"tracker_opening_proof",
         [
-            k_G,
+            &G1Affine::from(k_G),
             &G,
             &k_r_g,
             &r_g,
@@ -220,21 +223,34 @@ pub fn generate_whisk_tracker_proof<T: RngCore>(
     serialize_tracker_proof(&tracker_proof)
 }
 
-fn unzip_trackers(trackers: &[WhiskTracker]) -> (Vec<G1Affine>, Vec<G1Affine>) {
-    let vec_r: Vec<G1Affine> = trackers.iter().map(|tracker| tracker.r_G).collect();
-    let vec_s: Vec<G1Affine> = trackers.iter().map(|tracker| tracker.k_r_G).collect();
-    (vec_r, vec_s)
+fn unzip_trackers(
+    trackers: &[WhiskTracker],
+) -> Result<(Vec<G1Affine>, Vec<G1Affine>), SerializationError> {
+    let vec_r: Vec<G1Affine> = trackers
+        .iter()
+        .map(|tracker| from_g1_compressed(&tracker.r_G))
+        .collect::<Result<_, _>>()?;
+    let vec_s: Vec<G1Affine> = trackers
+        .iter()
+        .map(|tracker| from_g1_compressed(&tracker.k_r_G))
+        .collect::<Result<_, _>>()?;
+    Ok((vec_r, vec_s))
 }
 
-fn zip_trackers(vec_r: &[G1Affine], vec_s: &[G1Affine]) -> Vec<WhiskTracker> {
+fn zip_trackers(
+    vec_r: &[G1Affine],
+    vec_s: &[G1Affine],
+) -> Result<Vec<WhiskTracker>, SerializationError> {
     vec_r
         .iter()
         .zip(vec_s.iter())
-        .map(|(r_G, k_r_G)| WhiskTracker {
-            r_G: *r_G,
-            k_r_G: *k_r_G,
+        .map(|(r_G, k_r_G)| {
+            Ok(WhiskTracker {
+                r_G: to_g1_compressed(r_G)?,
+                k_r_G: to_g1_compressed(k_r_G)?,
+            })
         })
-        .collect()
+        .collect::<Result<_, _>>()
 }
 
 fn serialize_tracker_proof(proof: &TrackerProof) -> Result<TrackerProofBytes, SerializationError> {
@@ -249,13 +265,13 @@ fn deserialize_tracker_proof(
     TrackerProof::deserialize(Cursor::new(proof_bytes))
 }
 
-pub fn to_g1_compressed(g1: &G1Affine) -> Result<[u8; 48], SerializationError> {
-    let mut out = [0; 48];
+pub fn to_g1_compressed(g1: &G1Affine) -> Result<G1PointBytes, SerializationError> {
+    let mut out = [0; G1POINT_SIZE];
     g1.serialize(out.as_mut_slice())?;
     Ok(out)
 }
 
-pub fn from_g1_compressed(buf: &[u8; 48]) -> Result<G1Affine, SerializationError> {
+pub fn from_g1_compressed(buf: &G1PointBytes) -> Result<G1Affine, SerializationError> {
     G1Affine::deserialize(Cursor::new(buf))
 }
 
@@ -298,31 +314,41 @@ pub fn deserialize_fr(bytes: &[u8]) -> Fr {
 mod tests {
     use super::*;
     use crate::curdleproofs::generate_crs;
+    use ark_ff::One;
     use ark_ff::PrimeField;
     use ark_std::rand::rngs::StdRng;
     use ark_std::rand::SeedableRng;
     use core::iter;
 
-    fn generate_tracker<T: RngCore>(rng: &mut T, k: &Fr) -> WhiskTracker {
-        // r can be forgotten
-        let r = Fr::rand(rng);
+    fn compute_tracker(k: &Fr, r: &Fr) -> Result<WhiskTracker, SerializationError> {
         let G = G1Affine::prime_subgroup_generator();
 
-        let r_G = G.mul(r);
+        let r_G = G.mul(*r);
         let k_r_G = G1Affine::from(r_G).mul(*k);
 
-        WhiskTracker {
-            r_G: G1Affine::from(r_G),
-            k_r_G: G1Affine::from(k_r_G),
-        }
+        Ok(WhiskTracker {
+            r_G: to_g1_compressed(&G1Affine::from(r_G))?,
+            k_r_G: to_g1_compressed(&G1Affine::from(k_r_G))?,
+        })
     }
 
-    fn get_k_commitment(k: &Fr) -> G1Affine {
+    fn generate_tracker<T: RngCore>(
+        rng: &mut T,
+        k: &Fr,
+    ) -> Result<WhiskTracker, SerializationError> {
+        // r can be forgotten
+        let r = Fr::rand(rng);
+        compute_tracker(k, &r)
+    }
+
+    fn get_k_commitment(k: &Fr) -> Result<G1PointBytes, SerializationError> {
         let G = G1Affine::prime_subgroup_generator();
-        G1Affine::from(G.mul(*k))
+        to_g1_compressed(&G1Affine::from(G.mul(*k)))
     }
 
-    fn generate_shuffle_trackers<T: RngCore>(rng: &mut T) -> Vec<WhiskTracker> {
+    fn generate_shuffle_trackers<T: RngCore>(
+        rng: &mut T,
+    ) -> Result<Vec<WhiskTracker>, SerializationError> {
         iter::repeat_with(|| {
             let k = Fr::rand(rng);
             generate_tracker(rng, &k)
@@ -336,11 +362,10 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0u64);
 
         let k = Fr::rand(&mut rng);
-        let tracker = generate_tracker(&mut rng, &k);
-        let k_commitment = get_k_commitment(&k);
+        let tracker = generate_tracker(&mut rng, &k).unwrap();
+        let k_commitment = get_k_commitment(&k).unwrap();
 
-        let tracker_proof =
-            generate_whisk_tracker_proof(&mut rng, &tracker, &k_commitment, &k).unwrap();
+        let tracker_proof = generate_whisk_tracker_proof(&mut rng, &tracker, &k).unwrap();
         assert!(is_valid_whisk_tracker_proof(&tracker, &k_commitment, &tracker_proof).unwrap());
 
         // Assert correct TRACKER_PROOF_SIZE
@@ -353,12 +378,24 @@ mod tests {
         assert_eq!(out_data.len(), TRACKER_PROOF_SIZE);
     }
 
+    #[derive(Serialize, Deserialize)]
+    struct ShuffleProofSpec {
+        pre_trackers: Vec<WhiskTracker>,
+        post_trackers: Vec<WhiskTracker>,
+        #[serde(with = "hex::serde")]
+        proof: Vec<u8>,
+    }
+
+    fn shuffle_proof_fixture(n: usize) -> String {
+        format!("tests/fixtures/shuffle_proof_{}_valid.yml", n)
+    }
+
     #[test]
     fn whisk_shuffle_proof() {
         let mut rng = StdRng::seed_from_u64(0u64);
         let crs: CurdleproofsCrs = generate_crs(ELL);
 
-        let shuffled_trackers = generate_shuffle_trackers(&mut rng);
+        let shuffled_trackers = generate_shuffle_trackers(&mut rng).unwrap();
 
         let (whisk_post_shuffle_trackers, whisk_shuffle_proof_bytes) =
             generate_whisk_shuffle_proof(&mut rng, &crs, &shuffled_trackers).unwrap();
@@ -379,6 +416,17 @@ mod tests {
             .serialize(&mut out)
             .unwrap();
         assert_eq!(out_data.len(), WHISK_SHUFFLE_PROOF_SIZE);
+
+        if std::env::var("GENERATE_VECTORS").is_ok() {
+            let shuffle_proof_spec = ShuffleProofSpec {
+                pre_trackers: shuffled_trackers.clone(),
+                post_trackers: whisk_post_shuffle_trackers.clone(),
+                proof: whisk_shuffle_proof_bytes.to_vec(),
+            };
+
+            let file = std::fs::File::create(shuffle_proof_fixture(N)).unwrap();
+            serde_yaml::to_writer(file, &shuffle_proof_spec).unwrap();
+        }
     }
 
     // Construct the CRS
@@ -389,12 +437,12 @@ mod tests {
         pub whisk_shuffle_proof: WhiskShuffleProofBytes,
         pub whisk_registration_proof: TrackerProofBytes,
         pub whisk_tracker: WhiskTracker,
-        pub whisk_k_commitment: G1Affine,
+        pub whisk_k_commitment: G1PointBytes,
     }
 
     struct State {
         pub proposer_tracker: WhiskTracker,
-        pub proposer_k_commitment: G1Affine,
+        pub proposer_k_commitment: G1PointBytes,
         pub shuffled_trackers: Vec<WhiskTracker>,
     }
 
@@ -426,7 +474,7 @@ mod tests {
         );
 
         // whisk_process_tracker_registration
-        let G = G1Affine::prime_subgroup_generator();
+        let G = to_g1_compressed(&G1Affine::prime_subgroup_generator()).unwrap();
         if state.proposer_tracker.r_G == G {
             // First proposal
             assert!(
@@ -456,28 +504,21 @@ mod tests {
         let (whisk_post_shuffle_trackers, whisk_shuffle_proof) =
             generate_whisk_shuffle_proof(&mut rng, &crs, &state.shuffled_trackers).unwrap();
 
-        let is_first_proposal = state.proposer_tracker.r_G == G1Affine::prime_subgroup_generator();
+        let is_first_proposal = state.proposer_tracker.r_G
+            == to_g1_compressed(&G1Affine::prime_subgroup_generator()).unwrap();
 
         let (whisk_registration_proof, whisk_tracker, whisk_k_commitment) = if is_first_proposal {
             // First proposal, validator creates tracker for registering
-            let whisk_tracker = generate_tracker(&mut rng, &proposer_k);
-            let whisk_k_commitment = get_k_commitment(&proposer_k);
-            let whisk_registration_proof = generate_whisk_tracker_proof(
-                &mut rng,
-                &whisk_tracker,
-                &whisk_k_commitment,
-                &proposer_k,
-            )
-            .unwrap();
+            let whisk_tracker = generate_tracker(&mut rng, &proposer_k).unwrap();
+            let whisk_k_commitment = get_k_commitment(&proposer_k).unwrap();
+            let whisk_registration_proof =
+                generate_whisk_tracker_proof(&mut rng, &whisk_tracker, &proposer_k).unwrap();
             (whisk_registration_proof, whisk_tracker, whisk_k_commitment)
         } else {
             // And subsequent proposals leave registration fields empty
             let whisk_registration_proof = [0; TRACKER_PROOF_SIZE];
-            let whisk_tracker = WhiskTracker {
-                r_G: G1Affine::prime_subgroup_generator(),
-                k_r_G: G1Affine::prime_subgroup_generator(),
-            };
-            let whisk_k_commitment = G1Affine::prime_subgroup_generator();
+            let whisk_tracker = compute_tracker(&Fr::one(), &Fr::one()).unwrap();
+            let whisk_k_commitment = get_k_commitment(&Fr::one()).unwrap();
             (whisk_registration_proof, whisk_tracker, whisk_k_commitment)
         };
 
@@ -489,13 +530,9 @@ mod tests {
             *proposer_k
         };
 
-        let whisk_opening_proof = generate_whisk_tracker_proof(
-            &mut rng,
-            &state.proposer_tracker,
-            &state.proposer_k_commitment,
-            &k_prev_proposal,
-        )
-        .unwrap();
+        let whisk_opening_proof =
+            generate_whisk_tracker_proof(&mut rng, &state.proposer_tracker, &k_prev_proposal)
+                .unwrap();
 
         Block {
             whisk_opening_proof,
@@ -522,18 +559,16 @@ mod tests {
             generate_tracker(&mut rng, &k)
         })
         .take(ELL)
-        .collect();
+        .collect::<Result<_, _>>()
+        .unwrap();
 
         let proposer_index = 15400;
         let proposer_initial_k = compute_initial_k(proposer_index);
 
         // Initial dummy values, r = 1
         let mut state = State {
-            proposer_tracker: WhiskTracker {
-                r_G: G1Affine::prime_subgroup_generator(),
-                k_r_G: get_k_commitment(&proposer_initial_k),
-            },
-            proposer_k_commitment: get_k_commitment(&proposer_initial_k),
+            proposer_tracker: compute_tracker(&proposer_initial_k, &Fr::one()).unwrap(),
+            proposer_k_commitment: get_k_commitment(&proposer_initial_k).unwrap(),
             shuffled_trackers,
         };
 

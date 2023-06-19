@@ -25,13 +25,18 @@ ark-std ="^0.3.0"
 ark-serialize = { version = "^0.3.0", features = ["derive"] }
 thiserror = "1.0.32"
 hashbrown = "0.12.3"
+serde = { version = "1.0.164", features = ["derive"] }
+hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
 default = ["asm", "parallel", "std"]
 asm = ["ark-ff/asm"]
 print-trace = ["ark-std/print-trace"]
-parallel = [ "std", "ark-ff/parallel", "ark-std/parallel", "ark-ec/parallel"]
+parallel = ["std", "ark-ff/parallel", "ark-std/parallel", "ark-ec/parallel"]
 std = ["ark-ff/std", "ark-ec/std", "ark-std/std", "ark-serialize/std"]
+
+[dev-dependencies]
+serde_yaml = "0.9.21"
 
 
 [package.metadata.docs.rs]
