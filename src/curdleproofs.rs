@@ -41,6 +41,16 @@ pub struct CurdleproofsCrs {
     pub H_sum: G1Affine,
 }
 
+impl CurdleproofsCrs {
+    pub fn ell(&self) -> usize {
+        self.vec_G.len()
+    }
+
+    pub fn n_blinders(&self) -> usize {
+        self.vec_H.len()
+    }
+}
+
 /// Generate a randomly generated CRS
 pub fn generate_crs(ell: usize) -> CurdleproofsCrs {
     let mut rng = StdRng::seed_from_u64(0u64);
