@@ -150,9 +150,9 @@ pub fn is_valid_whisk_tracker_proof(
 
     // TODO: deserializing here to serialize immediately after in append_list()
     //       serde could be avoided but there's value in checking point's ok before proof gen
-    let k_r_G = from_g1_compressed(&tracker.k_r_G)?;
-    let r_G = from_g1_compressed(&tracker.r_G)?;
-    let k_G = from_g1_compressed(k_commitment)?;
+    let k_r_G = from_bytes_g1affine(&tracker.k_r_G)?;
+    let r_G = from_bytes_g1affine(&tracker.r_G)?;
+    let k_G = from_bytes_g1affine(k_commitment)?;
     let G = G1Affine::prime_subgroup_generator();
 
     // `k_r_G`: Existing WhiskTracker.k_r_g
@@ -191,8 +191,8 @@ pub fn generate_whisk_tracker_proof<T: RngCore>(
     tracker: &WhiskTracker,
     k: &Fr,
 ) -> Result<TrackerProofBytes, SerializationError> {
-    let k_r_g = from_g1_compressed(&tracker.k_r_G)?;
-    let r_g = from_g1_compressed(&tracker.r_G)?;
+    let k_r_g = from_bytes_g1affine(&tracker.k_r_G)?;
+    let r_g = from_bytes_g1affine(&tracker.r_G)?;
     let G = G1Affine::prime_subgroup_generator();
 
     let k_G = G.mul(*k);
@@ -228,11 +228,11 @@ fn unzip_trackers(
 ) -> Result<(Vec<G1Affine>, Vec<G1Affine>), SerializationError> {
     let vec_r: Vec<G1Affine> = trackers
         .iter()
-        .map(|tracker| from_g1_compressed(&tracker.r_G))
+        .map(|tracker| from_bytes_g1affine(&tracker.r_G))
         .collect::<Result<_, _>>()?;
     let vec_s: Vec<G1Affine> = trackers
         .iter()
-        .map(|tracker| from_g1_compressed(&tracker.k_r_G))
+        .map(|tracker| from_bytes_g1affine(&tracker.k_r_G))
         .collect::<Result<_, _>>()?;
     Ok((vec_r, vec_s))
 }
@@ -246,8 +246,8 @@ fn zip_trackers(
         .zip(vec_s.iter())
         .map(|(r_G, k_r_G)| {
             Ok(WhiskTracker {
-                r_G: to_g1_compressed(r_G)?,
-                k_r_G: to_g1_compressed(k_r_G)?,
+                r_G: to_bytes_g1affine(r_G)?,
+                k_r_G: to_bytes_g1affine(k_r_G)?,
             })
         })
         .collect::<Result<_, _>>()
@@ -265,27 +265,19 @@ fn deserialize_tracker_proof(
     TrackerProof::deserialize(Cursor::new(proof_bytes))
 }
 
-pub fn to_g1_compressed(g1: &G1Affine) -> Result<G1PointBytes, SerializationError> {
+pub fn to_bytes_g1affine(g1: &G1Affine) -> Result<G1PointBytes, SerializationError> {
     let mut out = [0; G1POINT_SIZE];
     g1.serialize(out.as_mut_slice())?;
     Ok(out)
 }
 
-pub fn from_g1_compressed(buf: &G1PointBytes) -> Result<G1Affine, SerializationError> {
+pub fn from_bytes_g1affine(buf: &G1PointBytes) -> Result<G1Affine, SerializationError> {
     G1Affine::deserialize(Cursor::new(buf))
 }
 
 /// Returns G1 generator (x,y)
 pub fn g1_generator() -> G1Affine {
     G1Affine::prime_subgroup_generator()
-}
-
-/// Convert bytes to a BLS field scalar. The output is not uniform over the BLS field.
-///
-/// Reads bytes in little-endian, and converts them to a field element.
-/// If the bytes are larger than the modulus, it will reduce them.
-pub fn bytes_to_bls_field(bytes: &[u8]) -> Fr {
-    Fr::from_le_bytes_mod_order(bytes)
 }
 
 /// G1 scalar multiplication
@@ -299,15 +291,18 @@ pub fn rand_scalar<T: RngCore>(rng: &mut T) -> Fr {
 }
 
 /// Serialize field element to bytes
-pub fn serialize_fr(fr: &Fr) -> FieldElementBytes {
+pub fn to_bytes_fr(fr: &Fr) -> FieldElementBytes {
     let mut bytes = [0u8; FIELD_ELEMENT_SIZE];
     fr.write(&mut bytes[..]).unwrap();
     bytes
 }
 
-/// Returns field element from big endian bytes
-pub fn deserialize_fr(bytes: &[u8]) -> Fr {
-    Fr::from_be_bytes_mod_order(bytes)
+/// Convert bytes to a BLS field scalar. The output is not uniform over the BLS field.
+///
+/// Reads bytes in big-endian, and converts them to a field element.
+/// If the bytes are larger than the modulus, it will reduce them.
+pub fn from_bytes_fr(bytes: &[u8]) -> Fr {
+    Fr::from_le_bytes_mod_order(bytes)
 }
 
 #[cfg(test)]
@@ -315,10 +310,25 @@ mod tests {
     use super::*;
     use crate::curdleproofs::generate_crs;
     use ark_ff::One;
-    use ark_ff::PrimeField;
     use ark_std::rand::rngs::StdRng;
     use ark_std::rand::SeedableRng;
     use core::iter;
+
+    #[test]
+    fn serde_fr_rand() {
+        let k_bytes =
+            hex::decode("9ebde6d84a58debe5ef02c729366a76078a15a653aa6234aeab6996ce47f8d2a")
+                .unwrap();
+        let k = from_bytes_fr(&k_bytes);
+        assert_eq!(to_bytes_fr(&k).as_slice(), &k_bytes);
+    }
+
+    #[test]
+    fn serde_g1_rand() {
+        let p_bytes = hex::decode("6d4761a01a6aa320db42b47ebe47b1fb7f7ab3925c4b1a2c6de3a15e40976596cad444ea4216d467d297ad2081107192").unwrap();
+        let p = from_bytes_g1affine(&p_bytes.clone().try_into().unwrap()).unwrap();
+        assert_eq!(to_bytes_g1affine(&p).unwrap().as_slice(), &p_bytes);
+    }
 
     fn compute_tracker(k: &Fr, r: &Fr) -> Result<WhiskTracker, SerializationError> {
         let G = G1Affine::prime_subgroup_generator();
@@ -327,8 +337,8 @@ mod tests {
         let k_r_G = G1Affine::from(r_G).mul(*k);
 
         Ok(WhiskTracker {
-            r_G: to_g1_compressed(&G1Affine::from(r_G))?,
-            k_r_G: to_g1_compressed(&G1Affine::from(k_r_G))?,
+            r_G: to_bytes_g1affine(&G1Affine::from(r_G))?,
+            k_r_G: to_bytes_g1affine(&G1Affine::from(k_r_G))?,
         })
     }
 
@@ -343,7 +353,7 @@ mod tests {
 
     fn get_k_commitment(k: &Fr) -> Result<G1PointBytes, SerializationError> {
         let G = G1Affine::prime_subgroup_generator();
-        to_g1_compressed(&G1Affine::from(G.mul(*k)))
+        to_bytes_g1affine(&G1Affine::from(G.mul(*k)))
     }
 
     fn generate_shuffle_trackers<T: RngCore>(
@@ -474,7 +484,7 @@ mod tests {
         );
 
         // whisk_process_tracker_registration
-        let G = to_g1_compressed(&G1Affine::prime_subgroup_generator()).unwrap();
+        let G = to_bytes_g1affine(&G1Affine::prime_subgroup_generator()).unwrap();
         if state.proposer_tracker.r_G == G {
             // First proposal
             assert!(
@@ -505,7 +515,7 @@ mod tests {
             generate_whisk_shuffle_proof(&mut rng, &crs, &state.shuffled_trackers).unwrap();
 
         let is_first_proposal = state.proposer_tracker.r_G
-            == to_g1_compressed(&G1Affine::prime_subgroup_generator()).unwrap();
+            == to_bytes_g1affine(&G1Affine::prime_subgroup_generator()).unwrap();
 
         let (whisk_registration_proof, whisk_tracker, whisk_k_commitment) = if is_first_proposal {
             // First proposal, validator creates tracker for registering
@@ -545,7 +555,7 @@ mod tests {
     }
 
     fn compute_initial_k(index: u64) -> Fr {
-        Fr::from_be_bytes_mod_order(&index.to_be_bytes())
+        from_bytes_fr(&index.to_be_bytes())
     }
 
     #[test]
