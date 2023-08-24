@@ -3,11 +3,11 @@
 #![allow(non_snake_case)]
 
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::{AffineRepr, CurveGroup};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 use ark_std::{UniformRand, Zero};
 
-use ark_ec::VariableBaseMSM;
+use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use core::iter;
 use std::ops::Mul;
 
@@ -111,4 +111,23 @@ pub(crate) fn sum_affine_points(affine_points: &[G1Affine]) -> G1Affine {
         .map(|affine| affine.into_group())
         .sum::<G1Projective>()
         .into_affine()
+}
+
+pub fn deserialize_g1projective_vec<R: Read>(
+    mut r: R,
+    n: usize,
+) -> Result<Vec<G1Projective>, SerializationError> {
+    (0..n)
+        .map(|_| G1Projective::deserialize_compressed(&mut r))
+        .collect()
+}
+
+pub fn serialize_g1projective_vec<W: Write>(
+    v: &[G1Projective],
+    mut w: W,
+) -> Result<(), SerializationError> {
+    for p in v {
+        p.serialize_compressed(&mut w)?;
+    }
+    Ok(())
 }

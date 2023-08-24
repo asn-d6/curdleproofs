@@ -12,6 +12,7 @@ use crate::errors::ProofError;
 use crate::transcript::CurdleproofsTranscript;
 use merlin::Transcript;
 
+/// CanonicalSerde produces compact representation since they type has no dyn vecs
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct SameScalarProof {
     cm_A: GroupCommitment,

@@ -4,7 +4,7 @@ use std::ops::Mul;
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::CurveGroup;
 use ark_ff::{batch_inversion, Field};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 use ark_std::{One, Zero};
 
@@ -13,6 +13,8 @@ use merlin::Transcript;
 use crate::errors::ProofError;
 use crate::msm_accumulator::MsmAccumulator;
 use crate::transcript::CurdleproofsTranscript;
+use crate::util::deserialize_g1projective_vec;
+use crate::util::serialize_g1projective_vec;
 use crate::util::{
     generate_blinders, get_verification_scalars_bitstring, inner_product, msm, msm_from_projective,
 };
@@ -321,6 +323,31 @@ impl InnerProductProof {
         msm_accumulator.accumulate_check(&point_lhs, &vec_d_div_s, crs_G_vec, rng);
 
         Ok(())
+    }
+
+    pub fn serialize<W: Write>(&self, mut w: W) -> Result<(), SerializationError> {
+        self.B_c.serialize_compressed(&mut w)?;
+        self.B_d.serialize_compressed(&mut w)?;
+        serialize_g1projective_vec(&self.vec_L_C, &mut w)?;
+        serialize_g1projective_vec(&self.vec_R_C, &mut w)?;
+        serialize_g1projective_vec(&self.vec_L_D, &mut w)?;
+        serialize_g1projective_vec(&self.vec_R_D, &mut w)?;
+        self.c_final.serialize_compressed(&mut w)?;
+        self.d_final.serialize_compressed(&mut w)?;
+        Ok(())
+    }
+
+    pub fn deserialize<R: Read>(mut r: R, log2_n: usize) -> Result<Self, SerializationError> {
+        Ok(Self {
+            B_c: G1Projective::deserialize_compressed(&mut r)?,
+            B_d: G1Projective::deserialize_compressed(&mut r)?,
+            vec_L_C: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_R_C: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_L_D: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_R_D: deserialize_g1projective_vec(&mut r, log2_n)?,
+            c_final: Fr::deserialize_compressed(&mut r)?,
+            d_final: Fr::deserialize_compressed(&mut r)?,
+        })
     }
 }
 

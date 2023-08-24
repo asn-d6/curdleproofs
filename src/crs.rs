@@ -67,6 +67,11 @@ impl CurdleproofsCrs {
             .collect::<Vec<_>>();
         CurdleproofsCrs::from_points(ell, &points).expect("unexpected points len")
     }
+
+    pub fn log2_n(&self) -> usize {
+        let n = self.vec_H.len() + self.vec_G.len();
+        (n as f64).log2().ceil() as usize
+    }
 }
 
 type G1AffineHex = String;

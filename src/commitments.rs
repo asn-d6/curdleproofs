@@ -29,6 +29,8 @@ use std::ops::{Add, Mul};
 /// A GroupCommitment object
 ///
 /// $GroupCommitment((G , H); T ; r ) = cm_T = (cm_{T,1} , cm_{T,2} ) = (r G , T + r H)$
+///
+/// CanonicalSerde produces compact representation since they type has no dyn vecs
 #[derive(Copy, Clone, CanonicalDeserialize, CanonicalSerialize, Debug, PartialEq, Eq)]
 pub struct GroupCommitment {
     /// Given $GroupCommitment((G , H); T ; r )$ this is $rG$

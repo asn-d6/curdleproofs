@@ -4,10 +4,15 @@ use std::ops::Mul;
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::CurveGroup;
 use ark_ff::{batch_inversion, Field, One};
+use ark_serialize::Read;
+use ark_serialize::SerializationError;
+use ark_serialize::Write;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 
 use crate::transcript::CurdleproofsTranscript;
+use crate::util::deserialize_g1projective_vec;
+use crate::util::serialize_g1projective_vec;
 use merlin::Transcript;
 
 use crate::errors::ProofError;
@@ -17,7 +22,7 @@ use crate::util::{
 };
 
 /// A $SameMsm$ proof object
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug)]
 pub struct SameMultiscalarProof {
     B_a: G1Projective,
     B_t: G1Projective,
@@ -253,6 +258,34 @@ impl SameMultiscalarProof {
             + msm_from_projective(&self.vec_R_U, &vec_gamma_inv);
         msm_accumulator.accumulate_check(&point_lhs, &vec_x_times_s, vec_U, rng);
         Ok(())
+    }
+
+    pub fn serialize<W: Write>(&self, mut w: W) -> Result<(), SerializationError> {
+        self.B_a.serialize_compressed(&mut w)?;
+        self.B_t.serialize_compressed(&mut w)?;
+        self.B_u.serialize_compressed(&mut w)?;
+        serialize_g1projective_vec(&self.vec_L_A, &mut w)?;
+        serialize_g1projective_vec(&self.vec_L_T, &mut w)?;
+        serialize_g1projective_vec(&self.vec_L_U, &mut w)?;
+        serialize_g1projective_vec(&self.vec_R_A, &mut w)?;
+        serialize_g1projective_vec(&self.vec_R_T, &mut w)?;
+        serialize_g1projective_vec(&self.vec_R_U, &mut w)?;
+        self.x_final.serialize_compressed(&mut w)?;
+        Ok(())
+    }
+    pub fn deserialize<R: Read>(mut r: R, log2_n: usize) -> Result<Self, SerializationError> {
+        Ok(Self {
+            B_a: G1Projective::deserialize_compressed(&mut r)?,
+            B_t: G1Projective::deserialize_compressed(&mut r)?,
+            B_u: G1Projective::deserialize_compressed(&mut r)?,
+            vec_L_A: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_L_T: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_L_U: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_R_A: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_R_T: deserialize_g1projective_vec(&mut r, log2_n)?,
+            vec_R_U: deserialize_g1projective_vec(&mut r, log2_n)?,
+            x_final: Fr::deserialize_compressed(&mut r)?,
+        })
     }
 }
 

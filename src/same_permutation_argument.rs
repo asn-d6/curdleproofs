@@ -3,7 +3,7 @@ use core::iter;
 use std::ops::Mul;
 
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 
 use crate::transcript::CurdleproofsTranscript;
@@ -15,7 +15,7 @@ use crate::msm_accumulator::MsmAccumulator;
 use crate::util::{get_permutation, msm};
 
 /// A same permutation proof object
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug)]
 pub struct SamePermutationProof {
     B: G1Projective,
 
@@ -168,6 +168,19 @@ impl SamePermutationProof {
         )?;
 
         Ok(())
+    }
+
+    pub fn serialize<W: Write>(&self, mut w: W) -> Result<(), SerializationError> {
+        self.B.serialize_compressed(&mut w)?;
+        self.grand_product_proof.serialize(&mut w)?;
+        Ok(())
+    }
+
+    pub fn deserialize<R: Read>(mut r: R, log2_n: usize) -> Result<Self, SerializationError> {
+        Ok(Self {
+            B: G1Projective::deserialize_compressed(&mut r)?,
+            grand_product_proof: GrandProductProof::deserialize(&mut r, log2_n)?,
+        })
     }
 }
 

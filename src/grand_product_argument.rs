@@ -5,7 +5,7 @@ use std::ops::Mul;
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::CurveGroup;
 use ark_ff::{Field, One};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::rand::RngCore;
 use ark_std::Zero;
 
@@ -243,6 +243,21 @@ impl GrandProductProof {
         )?;
 
         Ok(())
+    }
+
+    pub fn serialize<W: Write>(&self, mut w: W) -> Result<(), SerializationError> {
+        self.C.serialize_compressed(&mut w)?;
+        self.r_p.serialize_compressed(&mut w)?;
+        self.ipa_proof.serialize(&mut w)?;
+        Ok(())
+    }
+
+    pub fn deserialize<R: Read>(mut r: R, log2_n: usize) -> Result<Self, SerializationError> {
+        Ok(Self {
+            C: G1Projective::deserialize_compressed(&mut r)?,
+            r_p: Fr::deserialize_compressed(&mut r)?,
+            ipa_proof: InnerProductProof::deserialize(&mut r, log2_n)?,
+        })
     }
 }
 
