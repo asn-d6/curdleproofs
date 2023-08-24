@@ -11,7 +11,7 @@ use ark_ec::VariableBaseMSM;
 use core::iter;
 use std::ops::Mul;
 
-use crate::curdleproofs::CurdleproofsCrs;
+use crate::crs::CurdleproofsCrs;
 use crate::N_BLINDERS;
 
 /// An ergonomic MSM function

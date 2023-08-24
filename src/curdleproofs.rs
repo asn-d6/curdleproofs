@@ -3,12 +3,11 @@ pub use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::{AffineRepr, CurveGroup};
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 use ark_std::rand::RngCore;
-use ark_std::rand::{rngs::StdRng, SeedableRng};
 use ark_std::{UniformRand, Zero};
 
+use crate::crs::CurdleproofsCrs;
 use crate::errors::ProofError;
-use crate::util::{generate_blinders, get_permutation, msm, sum_affine_points};
-use core::iter;
+use crate::util::{generate_blinders, get_permutation, msm};
 use std::ops::Mul;
 
 use crate::transcript::CurdleproofsTranscript;
@@ -21,50 +20,8 @@ use crate::same_scalar_argument::SameScalarProof;
 
 use crate::N_BLINDERS;
 
-/// The Curdleproofs CRS
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct CurdleproofsCrs {
-    /// Pedersen commitment bases
-    pub vec_G: Vec<G1Affine>,
-    /// Pedersen commitment blinder bases
-    pub vec_H: Vec<G1Affine>,
-    /// Base used in the *SameScalar* argument
-    pub H: G1Projective,
-    /// Base used in the *SameScalar* argument
-    pub G_t: G1Projective,
-    /// Base used in the *SameScalar* argument
-    pub G_u: G1Projective,
-    /// Sum of vec_G (grand product argument [optimization](crate::notes::optimizations#grandproduct-verifier-optimizations))
-    pub G_sum: G1Affine,
-    /// Sum of vec_H (grand product argument [optimization](crate::notes::optimizations#grandproduct-verifier-optimizations))
-    pub H_sum: G1Affine,
-}
-
-/// Generate a randomly generated CRS
-pub fn generate_crs(ell: usize) -> CurdleproofsCrs {
-    let mut rng = StdRng::seed_from_u64(0u64);
-
-    let crs_G_vec: Vec<G1Affine> = iter::repeat_with(|| G1Projective::rand(&mut rng).into_affine())
-        .take(ell)
-        .collect();
-    let crs_H_vec: Vec<G1Affine> = iter::repeat_with(|| G1Projective::rand(&mut rng).into_affine())
-        .take(N_BLINDERS)
-        .collect();
-    let crs_H = G1Projective::rand(&mut rng);
-    let crs_G_t = G1Projective::rand(&mut rng);
-    let crs_G_u = G1Projective::rand(&mut rng);
-    let crs_G_sum: G1Affine = sum_affine_points(&crs_G_vec);
-    let crs_H_sum: G1Affine = sum_affine_points(&crs_H_vec);
-
-    CurdleproofsCrs {
-        vec_G: crs_G_vec,
-        vec_H: crs_H_vec,
-        H: crs_H,
-        G_t: crs_G_t,
-        G_u: crs_G_u,
-        G_sum: crs_G_sum,
-        H_sum: crs_H_sum,
-    }
+pub fn generate_crs(n: usize) -> CurdleproofsCrs {
+    CurdleproofsCrs::generate_crs(n).unwrap()
 }
 
 /// A Curdleproofs proof object
@@ -344,7 +301,9 @@ mod tests {
     use super::*;
     use crate::util::shuffle_permute_and_commit_input;
     use ark_std::rand::prelude::SliceRandom;
+    use ark_std::rand::{rngs::StdRng, SeedableRng};
     use ark_std::UniformRand;
+    use core::iter;
 
     #[test]
     fn test_shuffle_argument() {
@@ -354,7 +313,7 @@ mod tests {
         let ell = N - N_BLINDERS;
 
         // Construct the CRS
-        let crs: CurdleproofsCrs = generate_crs(ell);
+        let crs = CurdleproofsCrs::generate_crs(N).unwrap();
 
         // Get witnesses: the permutation, the randomizer, and a bunch of blinders
         let mut permutation: Vec<u32> = (0..ell as u32).collect();
@@ -403,7 +362,7 @@ mod tests {
         let ell = N - N_BLINDERS;
 
         // Construct the CRS
-        let crs: CurdleproofsCrs = generate_crs(ell);
+        let crs = CurdleproofsCrs::generate_crs(N).unwrap();
 
         // Get witnesses: the permutation, the randomizer, and a bunch of blinders
         let mut permutation: Vec<u32> = (0..ell as u32).collect();

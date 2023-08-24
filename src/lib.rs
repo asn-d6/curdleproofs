@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod commitments;
+pub mod crs;
 #[doc = include_str!("../doc/curdleproofs.md")]
 pub mod curdleproofs;
 mod errors;
