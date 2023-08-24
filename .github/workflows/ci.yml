@@ -73,6 +73,9 @@ jobs:
 
       - name: Test
         run: cargo test -- --test-threads=1
+      
+      - name: Bench
+        run: cargo bench
 
   docs:
     name: Docs
