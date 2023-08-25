@@ -1,16 +1,15 @@
 #![allow(non_snake_case)]
 pub use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
+use ark_ec::{AffineRepr, CurveGroup};
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
-use ark_serialize::{Read, Write};
 use ark_std::rand::RngCore;
 use ark_std::rand::{rngs::StdRng, SeedableRng};
 use ark_std::{UniformRand, Zero};
 
 use crate::errors::ProofError;
-use crate::util::{generate_blinders, get_permutation, msm};
+use crate::util::{generate_blinders, get_permutation, msm, sum_affine_points};
 use core::iter;
+use std::ops::Mul;
 
 use crate::transcript::CurdleproofsTranscript;
 
@@ -54,8 +53,8 @@ pub fn generate_crs(ell: usize) -> CurdleproofsCrs {
     let crs_H = G1Projective::rand(&mut rng);
     let crs_G_t = G1Projective::rand(&mut rng);
     let crs_G_u = G1Projective::rand(&mut rng);
-    let crs_G_sum: G1Affine = crs_G_vec.iter().sum();
-    let crs_H_sum: G1Affine = crs_H_vec.iter().sum();
+    let crs_G_sum: G1Affine = sum_affine_points(&crs_G_vec);
+    let crs_H_sum: G1Affine = sum_affine_points(&crs_H_vec);
 
     CurdleproofsCrs {
         vec_G: crs_G_vec,
@@ -154,8 +153,8 @@ impl CurdleproofsProof {
         let R = msm(&vec_R, &vec_a);
         let S = msm(&vec_S, &vec_a);
 
-        let cm_T = GroupCommitment::new(&crs.G_t, &crs.H, R.mul(k.into_repr()), r_t);
-        let cm_U = GroupCommitment::new(&crs.G_u, &crs.H, S.mul(k.into_repr()), r_u);
+        let cm_T = GroupCommitment::new(&crs.G_t, &crs.H, R.mul(k), r_t);
+        let cm_U = GroupCommitment::new(&crs.G_u, &crs.H, S.mul(k), r_u);
 
         let same_scalar_proof = SameScalarProof::new(
             &crs.G_t,
@@ -344,7 +343,6 @@ impl CurdleproofsProof {
 mod tests {
     use super::*;
     use crate::util::shuffle_permute_and_commit_input;
-    use ark_ec::AffineCurve;
     use ark_std::rand::prelude::SliceRandom;
     use ark_std::UniformRand;
 
@@ -460,26 +458,18 @@ mod tests {
 
         // provide wrong perm commitment
         assert!(shuffle_proof
-            .verify(
-                &crs,
-                &vec_R,
-                &vec_S,
-                &vec_T,
-                &vec_U,
-                &M.mul(k.into_repr()),
-                &mut rng
-            )
+            .verify(&crs, &vec_R, &vec_S, &vec_T, &vec_U, &M.mul(k), &mut rng)
             .is_err());
 
         // instnace outputs use a different randomizer
         let another_k = Fr::rand(&mut rng);
         let another_vec_T: Vec<G1Affine> = vec_T
             .iter()
-            .map(|T| T.mul(another_k.into_repr()).into_affine())
+            .map(|T| T.mul(another_k).into_affine())
             .collect();
         let another_vec_U: Vec<G1Affine> = vec_U
             .iter()
-            .map(|U| U.mul(another_k.into_repr()).into_affine())
+            .map(|U| U.mul(another_k).into_affine())
             .collect();
         assert!(shuffle_proof
             .verify(

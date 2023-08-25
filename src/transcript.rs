@@ -28,7 +28,9 @@ pub trait CurdleproofsTranscript {
 impl CurdleproofsTranscript for Transcript {
     fn append(&mut self, label: &'static [u8], item: &impl CanonicalSerialize) {
         let mut bytes = Vec::new();
-        item.serialize(&mut bytes).unwrap();
+        // TODO: check if serialize was doing serialize_compressed before.
+        //TODO: would be surprising if not
+        item.serialize_compressed(&mut bytes).unwrap();
         self.append_message(label, &bytes)
     }
 

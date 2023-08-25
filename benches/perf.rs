@@ -4,15 +4,14 @@
 use ark_bls12_381::Fr;
 use ark_bls12_381::G1Affine;
 use ark_bls12_381::G1Projective;
-use ark_ec::AffineCurve;
-use ark_ec::ProjectiveCurve;
-use ark_ff::fields::PrimeField;
+use ark_ec::CurveGroup;
 use ark_std::rand::prelude::SliceRandom;
 use ark_std::rand::{rngs::StdRng, SeedableRng};
 use ark_std::UniformRand;
 use core::iter;
 use core::time::Duration;
 use criterion::*;
+use std::ops::Mul;
 
 use curdleproofs::curdleproofs::{generate_crs, CurdleproofsProof};
 use curdleproofs::util::{generate_blinders, get_permutation, msm};
@@ -51,27 +50,15 @@ fn benchmark_shuffle(c: &mut Criterion) {
     // Derive shuffled outputs
     c.bench_function("shuffling", |b| {
         b.iter(|| {
-            let mut vec_T: Vec<G1Affine> = vec_R
-                .iter()
-                .map(|R| R.mul(k.into_repr()).into_affine())
-                .collect();
-            let mut vec_U: Vec<G1Affine> = vec_S
-                .iter()
-                .map(|S| S.mul(k.into_repr()).into_affine())
-                .collect();
+            let mut vec_T: Vec<G1Affine> = vec_R.iter().map(|R| R.mul(k).into_affine()).collect();
+            let mut vec_U: Vec<G1Affine> = vec_S.iter().map(|S| S.mul(k).into_affine()).collect();
             vec_T = apply_permutation_group(vec_T, &permutation);
             vec_U = apply_permutation_group(vec_U, &permutation);
         })
     });
 
-    let mut vec_T: Vec<G1Affine> = vec_R
-        .iter()
-        .map(|R| R.mul(k.into_repr()).into_affine())
-        .collect();
-    let mut vec_U: Vec<G1Affine> = vec_S
-        .iter()
-        .map(|S| S.mul(k.into_repr()).into_affine())
-        .collect();
+    let mut vec_T: Vec<G1Affine> = vec_R.iter().map(|R| R.mul(k).into_affine()).collect();
+    let mut vec_U: Vec<G1Affine> = vec_S.iter().map(|S| S.mul(k).into_affine()).collect();
     vec_T = apply_permutation_group(vec_T, &permutation);
     vec_U = apply_permutation_group(vec_U, &permutation);
 

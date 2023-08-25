@@ -1,10 +1,10 @@
 #![allow(non_snake_case)]
+use std::ops::Mul;
+
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::AffineCurve;
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
+use ark_ec::CurveGroup;
 use ark_ff::{batch_inversion, Field, One};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 
 use crate::transcript::CurdleproofsTranscript;
@@ -120,9 +120,9 @@ impl SameMultiscalarProof {
             // Fold vectors and basis
             for i in 0..n {
                 x_L[i] += gamma_inv * x_R[i];
-                T_L[i] = T_L[i] + T_R[i].mul(gamma.into_repr()).into_affine();
-                U_L[i] = U_L[i] + U_R[i].mul(gamma.into_repr()).into_affine();
-                G_L[i] = G_L[i] + G_R[i].mul(gamma.into_repr()).into_affine();
+                T_L[i] = (T_L[i] + T_R[i].mul(gamma)).into_affine();
+                U_L[i] = (U_L[i] + U_R[i].mul(gamma)).into_affine();
+                G_L[i] = (G_L[i] + G_R[i].mul(gamma)).into_affine();
             }
             slice_x = x_L;
             slice_T = T_L;
@@ -234,9 +234,9 @@ impl SameMultiscalarProof {
         let vec_x_times_s: Vec<Fr> = vec_s.iter().map(|s_i| self.x_final * *s_i).collect();
 
         // Step 3
-        let A_a = self.B_a + A.mul(alpha.into_repr());
-        let Z_t_a = self.B_t + Z_t.mul(alpha.into_repr());
-        let Z_u_a = self.B_u + Z_u.mul(alpha.into_repr());
+        let A_a = self.B_a + A.mul(alpha);
+        let Z_t_a = self.B_t + Z_t.mul(alpha);
+        let Z_u_a = self.B_u + Z_u.mul(alpha);
 
         let point_lhs = msm_from_projective(&self.vec_L_A, &vec_gamma)
             + A_a
@@ -259,7 +259,6 @@ impl SameMultiscalarProof {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_ec::ProjectiveCurve;
     use ark_std::rand::{rngs::StdRng, Rng, SeedableRng};
     use ark_std::UniformRand;
     use core::iter;

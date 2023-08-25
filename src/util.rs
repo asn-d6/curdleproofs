@@ -3,32 +3,28 @@
 #![allow(non_snake_case)]
 
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::AffineCurve;
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
+use ark_ec::{AffineRepr, CurveGroup};
 use ark_std::rand::RngCore;
 use ark_std::{UniformRand, Zero};
 
-use ark_ec::msm::VariableBaseMSM;
+use ark_ec::VariableBaseMSM;
 use core::iter;
+use std::ops::Mul;
 
 use crate::curdleproofs::CurdleproofsCrs;
 use crate::N_BLINDERS;
 
 /// An ergonomic MSM function
 ///
-/// TODO: This function can be removed when arkworks releases 0.4.0 which supports msm with `Fr` elements.
 pub fn msm(points: &[G1Affine], scalars: &[Fr]) -> G1Projective {
     assert_eq!(points.len(), scalars.len());
-    let scalars_formatted = scalars.iter().map(|x| x.into_repr()).collect::<Vec<_>>();
-    VariableBaseMSM::multi_scalar_mul(points, &scalars_formatted)
+    G1Projective::msm(points, scalars).expect("number of points != number of scalars")
 }
 
 /// An ergonomic MSM function that works with projective points
 pub fn msm_from_projective(points: &[G1Projective], scalars: &[Fr]) -> G1Projective {
     assert_eq!(points.len(), scalars.len());
-
-    let points_affine = G1Projective::batch_normalization_into_affine(points);
+    let points_affine = G1Projective::normalize_batch(points);
     msm(&points_affine, scalars)
 }
 
@@ -95,14 +91,8 @@ pub fn shuffle_permute_and_commit_input<T: RngCore>(
     let ell = crs.vec_G.len();
 
     // Derive shuffled outputs
-    let mut vec_T: Vec<G1Affine> = vec_R
-        .iter()
-        .map(|R| R.mul(k.into_repr()).into_affine())
-        .collect();
-    let mut vec_U: Vec<G1Affine> = vec_S
-        .iter()
-        .map(|S| S.mul(k.into_repr()).into_affine())
-        .collect();
+    let mut vec_T: Vec<G1Affine> = vec_R.iter().map(|R| R.mul(k).into_affine()).collect();
+    let mut vec_U: Vec<G1Affine> = vec_S.iter().map(|S| S.mul(k).into_affine()).collect();
     vec_T = get_permutation(&vec_T, permutation);
     vec_U = get_permutation(&vec_U, permutation);
 
@@ -113,4 +103,12 @@ pub fn shuffle_permute_and_commit_input<T: RngCore>(
     let M = msm(&crs.vec_G, &sigma_ell) + msm(&crs.vec_H, &vec_m_blinders);
 
     (vec_T, vec_U, M, vec_m_blinders)
+}
+
+pub(crate) fn sum_affine_points(affine_points: &[G1Affine]) -> G1Affine {
+    affine_points
+        .iter()
+        .map(|affine| affine.into_group())
+        .sum::<G1Projective>()
+        .into_affine()
 }

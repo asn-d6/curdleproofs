@@ -64,8 +64,8 @@ The following example shows how to create and verify a shuffle proof that shuffl
 # use ark_bls12_381::Fr;
 # use ark_bls12_381::G1Affine;
 # use ark_bls12_381::G1Projective;
-# use ark_ec::ProjectiveCurve;
 # use ark_std::rand::{rngs::StdRng, SeedableRng};
+# use ark_ec::CurveGroup;
 # use core::iter;
 #
 # use curdleproofs::N_BLINDERS;

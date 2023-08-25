@@ -6,8 +6,9 @@
 
 #![allow(non_snake_case)]
 
+use std::ops::Mul;
+
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::group::Group;
 use ark_std::rand::RngCore;
 use ark_std::{UniformRand, Zero};
 
@@ -70,7 +71,7 @@ impl MsmAccumulator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_ec::ProjectiveCurve;
+    use ark_ec::CurveGroup;
     use ark_std::rand::{rngs::StdRng, SeedableRng};
     use ark_std::UniformRand;
     use core::iter;

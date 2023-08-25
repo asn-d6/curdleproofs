@@ -1,10 +1,10 @@
 #![allow(non_snake_case)]
+use std::ops::Mul;
+
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::AffineCurve;
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
+use ark_ec::CurveGroup;
 use ark_ff::{batch_inversion, Field};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 use ark_std::{One, Zero};
 
@@ -135,7 +135,7 @@ impl InnerProductProof {
             vec_c[i] = vec_r_c[i] + alpha * vec_c[i];
             vec_d[i] = vec_r_d[i] + alpha * vec_d[i];
         }
-        let H = crs_H.mul(beta.into_repr());
+        let H = crs_H.mul(beta);
 
         // Step 2
         // Create slices backed by their respective vectors.  This lets us reslice as we compress the lengths of the
@@ -153,9 +153,9 @@ impl InnerProductProof {
             let (G_L, G_R) = slice_G.split_at_mut(n);
             let (G_prime_L, G_prime_R) = slice_G_prime.split_at_mut(n);
 
-            let L_C = msm(G_R, c_L) + H.mul(inner_product(c_L, d_R).into_repr());
+            let L_C = msm(G_R, c_L) + H.mul(inner_product(c_L, d_R));
             let L_D = msm(G_prime_L, d_R);
-            let R_C = msm(G_L, c_R) + H.mul(inner_product(c_R, d_L).into_repr());
+            let R_C = msm(G_L, c_R) + H.mul(inner_product(c_R, d_L));
             let R_D = msm(G_prime_R, d_L);
 
             // Append elements to the proof
@@ -172,8 +172,8 @@ impl InnerProductProof {
             for i in 0..n {
                 c_L[i] += gamma_inv * c_R[i];
                 d_L[i] += gamma * d_R[i];
-                G_L[i] = G_L[i] + G_R[i].mul(gamma.into_repr()).into_affine();
-                G_prime_L[i] = G_prime_L[i] + G_prime_R[i].mul(gamma_inv.into_repr()).into_affine();
+                G_L[i] = (G_L[i] + G_R[i].mul(gamma)).into_affine();
+                G_prime_L[i] = (G_prime_L[i] + G_prime_R[i].mul(gamma_inv)).into_affine();
             }
 
             // Save the rescaled vector for splitting in the next loop
@@ -297,8 +297,8 @@ impl InnerProductProof {
         vec_G_H.push(crs_H.into_affine());
 
         // Step 3
-        let H = crs_H.mul(beta.into_repr());
-        let C_a = self.B_c + C.mul(alpha.into_repr()) + H.mul((alpha * alpha * z).into_repr());
+        let H = crs_H.mul(beta);
+        let C_a = self.B_c + C.mul(alpha) + H.mul(alpha * alpha * z);
 
         let point_lhs = msm_from_projective(&self.vec_L_C, &vec_gamma)
             + C_a
@@ -313,7 +313,7 @@ impl InnerProductProof {
             .map(|(s_inv_i, u_i)| self.d_final * (s_inv_i * u_i))
             .collect();
 
-        let D_a = self.B_d + D.mul(alpha.into_repr());
+        let D_a = self.B_d + D.mul(alpha);
         let point_lhs = msm_from_projective(&self.vec_L_D, &vec_gamma)
             + D_a
             + msm_from_projective(&self.vec_R_D, &vec_gamma_inv);
