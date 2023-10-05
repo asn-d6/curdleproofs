@@ -22,8 +22,7 @@
 #![allow(non_snake_case)]
 
 use ark_bls12_381::{Fr, G1Projective};
-use ark_ec::group::Group;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use std::ops::{Add, Mul};
 

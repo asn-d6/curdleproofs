@@ -1,11 +1,9 @@
 #![allow(non_snake_case)]
 use core::iter;
+use std::ops::Mul;
 
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::group::Group;
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 
 use crate::transcript::CurdleproofsTranscript;
@@ -75,7 +73,7 @@ impl SamePermutationProof {
         let gprod_result: Fr = permuted_polynomial_factors.iter().product();
 
         let vec_beta_repeated: Vec<Fr> = iter::repeat(beta).take(ell).collect();
-        let B = A + M.mul(alpha.into_repr()) + msm(crs_G_vec, &vec_beta_repeated);
+        let B = A + M.mul(alpha) + msm(crs_G_vec, &vec_beta_repeated);
 
         let mut vec_b_blinders = Vec::with_capacity(n_blinders);
         for i in 0..n_blinders {
@@ -176,13 +174,13 @@ impl SamePermutationProof {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_ec::ProjectiveCurve;
+    use ark_ec::CurveGroup;
     use ark_std::rand::prelude::SliceRandom;
     use ark_std::rand::{rngs::StdRng, Rng, SeedableRng};
     use ark_std::UniformRand;
     use core::iter;
 
-    use crate::util::generate_blinders;
+    use crate::util::{generate_blinders, sum_affine_points};
 
     #[test]
     fn test_same_perm_argument() {
@@ -200,8 +198,8 @@ mod tests {
             .take(n_blinders)
             .collect();
         let crs_U = G1Projective::rand(&mut rng);
-        let crs_G_sum: G1Affine = crs_G_vec.iter().sum();
-        let crs_H_sum: G1Affine = crs_H_vec.iter().sum();
+        let crs_G_sum: G1Affine = sum_affine_points(&crs_G_vec);
+        let crs_H_sum: G1Affine = sum_affine_points(&crs_H_vec);
 
         let vec_a_blinders = generate_blinders(&mut rng, n_blinders);
         let vec_m_blinders = generate_blinders(&mut rng, n_blinders);

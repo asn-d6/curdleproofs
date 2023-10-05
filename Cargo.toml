@@ -1,8 +1,10 @@
 [package]
 name = "curdleproofs"
-version = "0.0.1"
-authors = ["George Kadianakis <asn@ethereum.org>",
-           "Mary Maller <mary.maller@ethereum.org>"]
+version = "0.0.2"
+authors = [
+    "George Kadianakis <asn@ethereum.org>",
+    "Mary Maller <mary.maller@ethereum.org>",
+]
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/asn-d6/curdleproofs"
@@ -18,11 +20,11 @@ harness = false
 [dependencies]
 criterion = { version = "0.3.5", features = ["html_reports"] }
 merlin = "3.0.0"
-ark-ec ="^0.3.0"
-ark-ff ="^0.3.0"
-ark-bls12-381 = "^0.3.0"
-ark-std ="^0.3.0"
-ark-serialize = { version = "^0.3.0", features = ["derive"] }
+ark-ec = "^0.4.0"
+ark-ff = "^0.4.0"
+ark-bls12-381 = "^0.4.0"
+ark-std = "^0.4.0"
+ark-serialize = { version = "^0.4.0", features = ["derive"] }
 thiserror = "1.0.32"
 hashbrown = "0.12.3"
 serde = { version = "1.0.164", features = ["derive"] }

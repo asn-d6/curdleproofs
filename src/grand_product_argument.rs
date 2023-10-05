@@ -1,10 +1,11 @@
 #![allow(non_snake_case)]
 use core::iter;
+use std::ops::Mul;
 
 use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::{AffineCurve, ProjectiveCurve};
+use ark_ec::CurveGroup;
 use ark_ff::{Field, One};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 use ark_std::Zero;
 
@@ -247,8 +248,9 @@ impl GrandProductProof {
 
 #[cfg(test)]
 mod tests {
+    use crate::util::sum_affine_points;
+
     use super::*;
-    use ark_ff::PrimeField;
     use ark_std::rand::{rngs::StdRng, Rng, SeedableRng};
     use ark_std::UniformRand;
     use core::iter;
@@ -269,8 +271,8 @@ mod tests {
             .take(n_blinders)
             .collect();
         let crs_U = G1Projective::rand(&mut rng);
-        let crs_G_sum: G1Affine = crs_G_vec.iter().sum();
-        let crs_H_sum: G1Affine = crs_H_vec.iter().sum();
+        let crs_G_sum: G1Affine = sum_affine_points(&crs_G_vec);
+        let crs_H_sum: G1Affine = sum_affine_points(&crs_H_vec);
 
         let vec_b: Vec<Fr> = iter::repeat_with(|| rng.gen()).take(ell).collect();
         let vec_b_blinders = generate_blinders(&mut rng, n_blinders);
@@ -345,7 +347,7 @@ mod tests {
                 &crs_U,
                 &crs_G_sum,
                 &crs_H_sum,
-                B.mul(Fr::rand(&mut rng).into_repr()),
+                B.mul(Fr::rand(&mut rng)),
                 gprod_result,
                 n_blinders,
                 &mut transcript_verifier,

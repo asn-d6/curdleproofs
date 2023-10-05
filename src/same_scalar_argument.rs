@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
+use std::ops::Mul;
+
 use ark_bls12_381::{Fr, G1Projective};
-use ark_ec::ProjectiveCurve;
-use ark_ff::PrimeField;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 use ark_std::UniformRand;
 
@@ -56,8 +56,8 @@ impl SameScalarProof {
         let r_b = Fr::rand(rng);
         let r_k = Fr::rand(rng);
 
-        let cm_A = GroupCommitment::new(crs_G_t, crs_H, R.mul(r_k.into_repr()), r_a);
-        let cm_B = GroupCommitment::new(crs_G_u, crs_H, S.mul(r_k.into_repr()), r_b);
+        let cm_A = GroupCommitment::new(crs_G_t, crs_H, R.mul(r_k), r_a);
+        let cm_B = GroupCommitment::new(crs_G_u, crs_H, S.mul(r_k), r_b);
 
         transcript.append_list(
             b"sameexp_points",
@@ -125,10 +125,8 @@ impl SameScalarProof {
         let alpha = transcript.get_and_append_challenge(b"same_scalar_alpha");
 
         // Step 2
-        let expected_1 =
-            GroupCommitment::new(crs_G_t, crs_H, R.mul(self.z_k.into_repr()), self.z_t);
-        let expected_2 =
-            GroupCommitment::new(crs_G_u, crs_H, S.mul(self.z_k.into_repr()), self.z_u);
+        let expected_1 = GroupCommitment::new(crs_G_t, crs_H, R.mul(self.z_k), self.z_t);
+        let expected_2 = GroupCommitment::new(crs_G_u, crs_H, S.mul(self.z_k), self.z_u);
 
         if (self.cm_A + cm_T * alpha == expected_1) && (self.cm_B + cm_U * alpha == expected_2) {
             Ok(())
@@ -159,8 +157,8 @@ mod tests {
         let r_t = Fr::rand(&mut rng);
         let r_u = Fr::rand(&mut rng);
 
-        let cm_T = GroupCommitment::new(&crs_G_t, &crs_H, R.mul(k.into_repr()), r_t);
-        let cm_U = GroupCommitment::new(&crs_G_u, &crs_H, S.mul(k.into_repr()), r_u);
+        let cm_T = GroupCommitment::new(&crs_G_t, &crs_H, R.mul(k), r_t);
+        let cm_U = GroupCommitment::new(&crs_G_u, &crs_H, S.mul(k), r_u);
 
         let proof = SameScalarProof::new(
             &crs_G_t,

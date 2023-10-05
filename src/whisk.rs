@@ -1,15 +1,16 @@
 #![allow(non_snake_case)]
 pub use ark_bls12_381::g1::G1_GENERATOR_X;
 pub use ark_bls12_381::{Fr, G1Affine, G1Projective};
-use ark_ec::AffineCurve;
-use ark_ff::{PrimeField, ToBytes};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_ec::AffineRepr;
+use ark_ff::PrimeField;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 use ark_std::rand::prelude::SliceRandom;
 use ark_std::rand::RngCore;
 use ark_std::UniformRand;
 use merlin::Transcript;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
+use std::ops::Mul;
 
 use crate::{
     curdleproofs::{CurdleproofsCrs, CurdleproofsProof},
@@ -74,7 +75,7 @@ pub fn is_valid_whisk_shuffle_proof<T: RngCore>(
     let (vec_r, vec_s) = unzip_trackers(pre_trackers)?;
     let (vec_t, vec_u) = unzip_trackers(post_trackers)?;
     let whisk_shuffle_proof =
-        WhiskShuffleProof::deserialize(Cursor::new(whisk_shuffle_proof_bytes))?;
+        WhiskShuffleProof::deserialize_compressed(Cursor::new(whisk_shuffle_proof_bytes))?;
 
     Ok(whisk_shuffle_proof
         .proof
@@ -134,7 +135,8 @@ pub fn generate_whisk_shuffle_proof<T: RngCore>(
     );
 
     let mut whisk_shuffle_proof_bytes = [0; WHISK_SHUFFLE_PROOF_SIZE];
-    WhiskShuffleProof { proof, M: m }.serialize(whisk_shuffle_proof_bytes.as_mut_slice())?;
+    WhiskShuffleProof { proof, M: m }
+        .serialize_compressed(whisk_shuffle_proof_bytes.as_mut_slice())?;
 
     Ok((zip_trackers(&vec_t, &vec_u)?, whisk_shuffle_proof_bytes))
 }
@@ -153,7 +155,7 @@ pub fn is_valid_whisk_tracker_proof(
     let k_r_G = from_bytes_g1affine(&tracker.k_r_G)?;
     let r_G = from_bytes_g1affine(&tracker.r_G)?;
     let k_G = from_bytes_g1affine(k_commitment)?;
-    let G = G1Affine::prime_subgroup_generator();
+    let G = G1Affine::generator();
 
     // `k_r_G`: Existing WhiskTracker.k_r_g
     // `r_G`: Existing WhiskTracker.k_r_g
@@ -170,7 +172,7 @@ pub fn is_valid_whisk_tracker_proof(
         b"tracker_opening_proof",
         [
             &k_G,
-            &G1Affine::prime_subgroup_generator(),
+            &G1Affine::generator(),
             &k_r_G,
             &r_G,
             &G1Affine::from(tracker_proof.A),
@@ -193,7 +195,7 @@ pub fn generate_whisk_tracker_proof<T: RngCore>(
 ) -> Result<TrackerProofBytes, SerializationError> {
     let k_r_g = from_bytes_g1affine(&tracker.k_r_G)?;
     let r_g = from_bytes_g1affine(&tracker.r_G)?;
-    let G = G1Affine::prime_subgroup_generator();
+    let G = G1Affine::generator();
 
     let k_G = G.mul(*k);
     let blinder = Fr::rand(rng);
@@ -255,29 +257,29 @@ fn zip_trackers(
 
 fn serialize_tracker_proof(proof: &TrackerProof) -> Result<TrackerProofBytes, SerializationError> {
     let mut out = [0; TRACKER_PROOF_SIZE];
-    proof.serialize(out.as_mut_slice())?;
+    proof.serialize_compressed(out.as_mut_slice())?;
     Ok(out)
 }
 
 fn deserialize_tracker_proof(
     proof_bytes: &TrackerProofBytes,
 ) -> Result<TrackerProof, SerializationError> {
-    TrackerProof::deserialize(Cursor::new(proof_bytes))
+    TrackerProof::deserialize_compressed(Cursor::new(proof_bytes))
 }
 
 pub fn to_bytes_g1affine(g1: &G1Affine) -> Result<G1PointBytes, SerializationError> {
     let mut out = [0; G1POINT_SIZE];
-    g1.serialize(out.as_mut_slice())?;
+    g1.serialize_compressed(out.as_mut_slice())?;
     Ok(out)
 }
 
 pub fn from_bytes_g1affine(buf: &G1PointBytes) -> Result<G1Affine, SerializationError> {
-    G1Affine::deserialize(Cursor::new(buf))
+    G1Affine::deserialize_compressed(Cursor::new(buf))
 }
 
 /// Returns G1 generator (x,y)
 pub fn g1_generator() -> G1Affine {
-    G1Affine::prime_subgroup_generator()
+    G1Affine::generator()
 }
 
 /// G1 scalar multiplication
@@ -293,7 +295,9 @@ pub fn rand_scalar<T: RngCore>(rng: &mut T) -> Fr {
 /// Serialize field element to bytes
 pub fn to_bytes_fr(fr: &Fr) -> FieldElementBytes {
     let mut bytes = [0u8; FIELD_ELEMENT_SIZE];
-    fr.write(&mut bytes[..]).unwrap();
+
+    fr.serialize_uncompressed(&mut bytes[..]).unwrap();
+
     bytes
 }
 
@@ -324,14 +328,14 @@ mod tests {
     }
 
     #[test]
-    fn serde_g1_rand() {
-        let p_bytes = hex::decode("6d4761a01a6aa320db42b47ebe47b1fb7f7ab3925c4b1a2c6de3a15e40976596cad444ea4216d467d297ad2081107192").unwrap();
-        let p = from_bytes_g1affine(&p_bytes.clone().try_into().unwrap()).unwrap();
-        assert_eq!(to_bytes_g1affine(&p).unwrap().as_slice(), &p_bytes);
+    fn serde_g1_roundtrip() {
+        let generator_bytes: Vec<u8> = hex::decode("97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb").unwrap();
+        let p = from_bytes_g1affine(&generator_bytes.clone().try_into().unwrap()).unwrap();
+        assert_eq!(to_bytes_g1affine(&p).unwrap().as_slice(), &generator_bytes);
     }
 
     fn compute_tracker(k: &Fr, r: &Fr) -> Result<WhiskTracker, SerializationError> {
-        let G = G1Affine::prime_subgroup_generator();
+        let G = G1Affine::generator();
 
         let r_G = G.mul(*r);
         let k_r_G = G1Affine::from(r_G).mul(*k);
@@ -352,7 +356,7 @@ mod tests {
     }
 
     fn get_k_commitment(k: &Fr) -> Result<G1PointBytes, SerializationError> {
-        let G = G1Affine::prime_subgroup_generator();
+        let G = G1Affine::generator();
         to_bytes_g1affine(&G1Affine::from(G.mul(*k)))
     }
 
@@ -383,7 +387,7 @@ mod tests {
         let mut out = Cursor::new(&mut out_data);
         deserialize_tracker_proof(&tracker_proof)
             .unwrap()
-            .serialize(&mut out)
+            .serialize_compressed(&mut out)
             .unwrap();
         assert_eq!(out_data.len(), TRACKER_PROOF_SIZE);
     }
@@ -421,9 +425,9 @@ mod tests {
         // Assert correct TRACKER_PROOF_SIZE
         let mut out_data = vec![];
         let mut out = Cursor::new(&mut out_data);
-        WhiskShuffleProof::deserialize(Cursor::new(&whisk_shuffle_proof_bytes))
+        WhiskShuffleProof::deserialize_compressed(Cursor::new(&whisk_shuffle_proof_bytes))
             .unwrap()
-            .serialize(&mut out)
+            .serialize_compressed(&mut out)
             .unwrap();
         assert_eq!(out_data.len(), WHISK_SHUFFLE_PROOF_SIZE);
 
@@ -484,7 +488,7 @@ mod tests {
         );
 
         // whisk_process_tracker_registration
-        let G = to_bytes_g1affine(&G1Affine::prime_subgroup_generator()).unwrap();
+        let G = to_bytes_g1affine(&G1Affine::generator()).unwrap();
         if state.proposer_tracker.r_G == G {
             // First proposal
             assert!(
@@ -514,8 +518,8 @@ mod tests {
         let (whisk_post_shuffle_trackers, whisk_shuffle_proof) =
             generate_whisk_shuffle_proof(&mut rng, &crs, &state.shuffled_trackers).unwrap();
 
-        let is_first_proposal = state.proposer_tracker.r_G
-            == to_bytes_g1affine(&G1Affine::prime_subgroup_generator()).unwrap();
+        let is_first_proposal =
+            state.proposer_tracker.r_G == to_bytes_g1affine(&G1Affine::generator()).unwrap();
 
         let (whisk_registration_proof, whisk_tracker, whisk_k_commitment) = if is_first_proposal {
             // First proposal, validator creates tracker for registering
