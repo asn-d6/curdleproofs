@@ -54,9 +54,10 @@ fn generate_random_points(num_points: usize, seed: &str) -> (Vec<G1Affine>, u64)
 #[test]
 fn ethereum_crs_128_seed() {
     let n = 128;
+    let ell = n - N_BLINDERS;
     let (points, increment) =
         generate_random_points(n + CRS_EXTRA_POINTS, "nankokita_no_kakurenbo");
-    let crs = CurdleproofsCrs::from_points(n, &points).unwrap();
+    let crs = CurdleproofsCrs::from_points(ell, &points).unwrap();
 
     println!("generated random CRS, n_attempts {}", increment);
 
@@ -71,9 +72,10 @@ fn ethereum_crs_128_seed() {
 #[test]
 fn ethereum_crs_8_seed() {
     let n = 8;
+    let ell = n - N_BLINDERS;
     let (points, increment) =
         generate_random_points(n + CRS_EXTRA_POINTS, "nankokita_no_kakurenbo");
-    let crs = CurdleproofsCrs::from_points(n, &points).unwrap();
+    let crs = CurdleproofsCrs::from_points(ell, &points).unwrap();
 
     println!("generated random CRS, n_attempts {}", increment);
 
@@ -89,7 +91,7 @@ fn ethereum_crs_8_seed() {
 #[test]
 fn ethereum_crs_128_unsafe_rand() {
     let n = 128;
-    let crs = CurdleproofsCrs::generate_crs(n).unwrap(); // Note that +CRS_EXTRA_POINTS is done inside.
+    let crs = CurdleproofsCrs::generate_crs(n - N_BLINDERS); // Note that +CRS_EXTRA_POINTS is done inside.
 
     // Check CRS works
     test_crs(&crs, n);

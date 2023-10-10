@@ -401,7 +401,7 @@ mod tests {
     #[test]
     fn whisk_shuffle_proof() {
         let mut rng = StdRng::seed_from_u64(0u64);
-        let crs = CurdleproofsCrs::generate_crs(N).unwrap();
+        let crs = CurdleproofsCrs::generate_crs(ELL);
 
         let shuffled_trackers = generate_shuffle_trackers(&mut rng).unwrap();
 
@@ -559,7 +559,7 @@ mod tests {
     #[test]
     fn whisk_full_lifecycle() {
         let mut rng = StdRng::seed_from_u64(0u64);
-        let crs = CurdleproofsCrs::generate_crs(N).unwrap();
+        let crs = CurdleproofsCrs::generate_crs(ELL);
 
         // Initial tracker in state
         let shuffled_trackers = generate_shuffle_trackers(&mut rng).unwrap();

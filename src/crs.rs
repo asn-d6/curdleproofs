@@ -34,17 +34,15 @@ pub struct CurdleproofsCrs {
 }
 
 impl CurdleproofsCrs {
-    pub fn from_points(n: usize, points: &[G1Affine]) -> Result<Self, String> {
+    pub fn from_points(ell: usize, points: &[G1Affine]) -> Result<Self, String> {
+        let n = ell + N_BLINDERS;
         let num_points = n + CRS_EXTRA_POINTS;
         if points.len() < num_points {
             return Err("not enough points".to_owned());
         }
-        if n < N_BLINDERS {
-            return Err("n less than blinders".to_owned());
-        }
 
-        let vec_G = points[0..n - N_BLINDERS].to_vec();
-        let vec_H = points[n - N_BLINDERS..n].to_vec();
+        let vec_G = points[0..ell].to_vec();
+        let vec_H = points[ell..n].to_vec();
         let G_sum = sum_affine_points(&vec_G);
         let H_sum = sum_affine_points(&vec_H);
 
@@ -60,14 +58,14 @@ impl CurdleproofsCrs {
     }
 
     /// Generate a randomly generated (unsafe) CRS
-    pub fn generate_crs(n: usize) -> Result<Self, String> {
-        let num_points = n + CRS_EXTRA_POINTS;
+    pub fn generate_crs(ell: usize) -> Self {
+        let num_points = ell + N_BLINDERS + CRS_EXTRA_POINTS;
         let mut rng = StdRng::seed_from_u64(0u64);
 
         let points = iter::repeat_with(|| G1Projective::rand(&mut rng).into_affine())
             .take(num_points)
             .collect::<Vec<_>>();
-        CurdleproofsCrs::from_points(n, &points)
+        CurdleproofsCrs::from_points(ell, &points).expect("unexpected points len")
     }
 }
 
@@ -144,7 +142,7 @@ mod tests {
 
     #[test]
     fn serde_crs_json() {
-        let crs = CurdleproofsCrs::generate_crs(64).unwrap();
+        let crs = CurdleproofsCrs::generate_crs(64 - N_BLINDERS);
         let crs_json: CurdleproofsCrsHex = (&crs).try_into().unwrap();
         let crs_json_str = serde_json::to_string(&crs_json).unwrap();
 

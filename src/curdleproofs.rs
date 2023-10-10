@@ -20,8 +20,8 @@ use crate::same_scalar_argument::SameScalarProof;
 
 use crate::N_BLINDERS;
 
-pub fn generate_crs(n: usize) -> CurdleproofsCrs {
-    CurdleproofsCrs::generate_crs(n).unwrap()
+pub fn generate_crs(ell: usize) -> CurdleproofsCrs {
+    CurdleproofsCrs::generate_crs(ell)
 }
 
 /// A Curdleproofs proof object
@@ -313,7 +313,7 @@ mod tests {
         let ell = N - N_BLINDERS;
 
         // Construct the CRS
-        let crs = CurdleproofsCrs::generate_crs(N).unwrap();
+        let crs = CurdleproofsCrs::generate_crs(ell);
 
         // Get witnesses: the permutation, the randomizer, and a bunch of blinders
         let mut permutation: Vec<u32> = (0..ell as u32).collect();
@@ -362,7 +362,7 @@ mod tests {
         let ell = N - N_BLINDERS;
 
         // Construct the CRS
-        let crs = CurdleproofsCrs::generate_crs(N).unwrap();
+        let crs = CurdleproofsCrs::generate_crs(ell);
 
         // Get witnesses: the permutation, the randomizer, and a bunch of blinders
         let mut permutation: Vec<u32> = (0..ell as u32).collect();
