@@ -38,7 +38,9 @@ parallel = ["std", "ark-ff/parallel", "ark-std/parallel", "ark-ec/parallel"]
 std = ["ark-ff/std", "ark-ec/std", "ark-std/std", "ark-serialize/std"]
 
 [dev-dependencies]
+serde_json = "1.0.105"
 serde_yaml = "0.9.21"
+sha2 = "0.10.7"
 
 
 [package.metadata.docs.rs]
