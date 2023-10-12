@@ -2,6 +2,7 @@
 pub use ark_bls12_381::{Fr, G1Affine, G1Projective};
 use ark_ec::{AffineRepr, CurveGroup};
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
+use ark_serialize::{Read, Write};
 use ark_std::rand::RngCore;
 use ark_std::{UniformRand, Zero};
 
@@ -20,12 +21,13 @@ use crate::same_scalar_argument::SameScalarProof;
 
 use crate::N_BLINDERS;
 
+/// Generate a randomly generated CRS
 pub fn generate_crs(ell: usize) -> CurdleproofsCrs {
     CurdleproofsCrs::generate_crs(ell)
 }
 
 /// A Curdleproofs proof object
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug)]
 pub struct CurdleproofsProof {
     A: G1Projective,
     cm_T: GroupCommitment,
@@ -293,6 +295,31 @@ impl CurdleproofsProof {
 
         // Do the final verification on our MSM accumulator
         msm_accumulator.verify()
+    }
+
+    pub fn serialize<W: Write>(&self, mut w: W) -> Result<(), SerializationError> {
+        self.A.serialize_compressed(&mut w)?;
+        self.cm_T.serialize_compressed(&mut w)?;
+        self.cm_U.serialize_compressed(&mut w)?;
+        self.R.serialize_compressed(&mut w)?;
+        self.S.serialize_compressed(&mut w)?;
+        self.same_perm_proof.serialize(&mut w)?;
+        self.same_scalar_proof.serialize_compressed(&mut w)?;
+        self.same_multiscalar_proof.serialize(&mut w)?;
+        Ok(())
+    }
+
+    pub fn deserialize<R: Read>(mut r: R, log2_n: usize) -> Result<Self, SerializationError> {
+        Ok(Self {
+            A: G1Projective::deserialize_compressed(&mut r)?,
+            cm_T: GroupCommitment::deserialize_compressed(&mut r)?,
+            cm_U: GroupCommitment::deserialize_compressed(&mut r)?,
+            R: G1Projective::deserialize_compressed(&mut r)?,
+            S: G1Projective::deserialize_compressed(&mut r)?,
+            same_perm_proof: SamePermutationProof::deserialize(&mut r, log2_n)?,
+            same_scalar_proof: SameScalarProof::deserialize_compressed(&mut r)?,
+            same_multiscalar_proof: SameMultiscalarProof::deserialize(&mut r, log2_n)?,
+        })
     }
 }
 
